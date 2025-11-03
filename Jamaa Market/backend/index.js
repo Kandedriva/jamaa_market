@@ -23,6 +23,10 @@ app.get('/health', (req, res) => {
 const productRoutes = require('./routes/products');
 app.use('/api/products', productRoutes);
 
+// Admin routes
+const adminRoutes = require('./routes/admin');
+app.use('/api/admin', adminRoutes);
+
 const startServer = async () => {
   try {
     await connectDB();
