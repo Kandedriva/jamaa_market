@@ -1,8 +1,13 @@
 import React from 'react';
 import Products from './pages/Products';
+import { CartProvider } from './context/CartContext';
 
 function App() {
-  return <Products />;
+  return (
+    <CartProvider>
+      <Products />
+    </CartProvider>
+  );
 }
 
 export default App;

@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import ImageModal from './ImageModal';
+import { useCart } from '../context/CartContext';
 
 interface Product {
   id: number;
@@ -15,18 +17,60 @@ interface ProductCardProps {
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const { addToCart, state } = useCart();
+
+  const handleImageClick = () => {
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+  };
+
+  const handleAddToCart = async () => {
+    setIsAdding(true);
+    addToCart(product);
+    
+    // Add a small delay for visual feedback
+    setTimeout(() => {
+      setIsAdding(false);
+    }, 500);
+  };
+
+  // Check if product is already in cart
+  const cartItem = state.items.find(item => item.id === product.id);
+  const isInCart = !!cartItem;
+  const cartQuantity = cartItem?.quantity || 0;
+
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full">
-      <div className="relative">
+      <div className="relative overflow-hidden cursor-pointer group">
         <img 
           src={product.image_url} 
           alt={product.name}
-          className="w-full h-56 object-cover"
+          className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-110"
+          onClick={handleImageClick}
         />
+        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+            </svg>
+          </div>
+        </div>
         <span className="absolute top-3 right-3 text-xs bg-blue-600 text-white px-3 py-1 rounded-full font-medium">
           {product.category}
         </span>
       </div>
+      
+      <ImageModal 
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        imageUrl={product.image_url}
+        productName={product.name}
+      />
       
       <div className="p-5 flex flex-col flex-grow">
         <div className="mb-3">
@@ -54,15 +98,47 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           </div>
           
+          {isInCart && (
+            <div className="mb-3 text-center">
+              <span className="text-sm text-green-600 font-medium">
+                ✓ {cartQuantity} in cart
+              </span>
+            </div>
+          )}
+          
           <button 
-            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 ${
-              product.stock_quantity > 0
-                ? 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transform hover:scale-105'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            onClick={handleAddToCart}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+              product.stock_quantity === 0
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : cartQuantity >= product.stock_quantity
+                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                : isAdding
+                ? 'bg-green-500 text-white'
+                : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md transform hover:scale-105'
             }`}
-            disabled={product.stock_quantity === 0}
+            disabled={product.stock_quantity === 0 || isAdding}
           >
-            {product.stock_quantity > 0 ? 'Add to Cart' : 'Out of Stock'}
+            {isAdding ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Adding...</span>
+              </>
+            ) : product.stock_quantity === 0 ? (
+              'Out of Stock'
+            ) : cartQuantity >= product.stock_quantity ? (
+              'Max Quantity'
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
+                </svg>
+                <span>Add to Cart</span>
+              </>
+            )}
           </button>
         </div>
       </div>

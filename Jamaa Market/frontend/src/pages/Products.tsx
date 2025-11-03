@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ProductCard from '../components/ProductCard';
+import CartDrawer from '../components/CartDrawer';
+import { useCart } from '../context/CartContext';
 
 interface Product {
   id: number;
@@ -17,6 +19,7 @@ const Products: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const { toggleCart, getTotalItems } = useCart();
 
   const categories = ['all', 'Electronics', 'Clothing', 'Home & Kitchen', 'Fitness', 'Accessories', 'Home & Garden'];
 
@@ -75,16 +78,33 @@ const Products: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-blue-600 text-white p-4">
-        <div className="flex items-center space-x-3">
-          <img 
-            src="/globe.png" 
-            alt="World Globe" 
-            className="w-12 h-12 object-contain"
-          />
-          <div>
-            <h1 className="text-2xl font-bold">Jamaa Market</h1>
-            <p className="text-blue-100">Your Online Marketplace</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <img 
+              src="/globe.png" 
+              alt="World Globe" 
+              className="w-12 h-12 object-contain"
+            />
+            <div>
+              <h1 className="text-2xl font-bold">Jamaa Market</h1>
+              <p className="text-blue-100">Your Online Marketplace</p>
+            </div>
           </div>
+          
+          {/* Cart Icon */}
+          <button
+            onClick={toggleCart}
+            className="relative p-3 hover:bg-blue-700 rounded-full transition-colors duration-200"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
+            </svg>
+            {getTotalItems() > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">
+                {getTotalItems()}
+              </span>
+            )}
+          </button>
         </div>
       </header>
 
@@ -123,6 +143,9 @@ const Products: React.FC = () => {
           </div>
         )}
       </main>
+      
+      {/* Cart Drawer */}
+      <CartDrawer />
     </div>
   );
 };
