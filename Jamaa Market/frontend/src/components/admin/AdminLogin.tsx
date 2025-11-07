@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  user_type: 'customer' | 'admin';
+}
 
 interface AdminLoginProps {
-  onLogin: (credentials: { username: string; password: string }) => void;
+  onLogin: (userData: User, token: string) => void;
 }
 
 const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
   const [credentials, setCredentials] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
@@ -18,14 +29,23 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
     setError('');
 
     try {
-      // Simple demo authentication (in real app, this would be an API call)
-      if (credentials.username === 'admin' && credentials.password === 'admin123') {
-        onLogin(credentials);
+      const response = await axios.post(`${API_BASE_URL}/auth/admin/login`, {
+        email: credentials.email,
+        password: credentials.password
+      });
+
+      if (response.data.success) {
+        const { user, token } = response.data.data;
+        onLogin(user, token);
       } else {
-        setError('Invalid username or password');
+        setError(response.data.message || 'Login failed');
       }
-    } catch (err) {
-      setError('Login failed. Please try again.');
+    } catch (err: any) {
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Login failed. Please check your connection and try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -58,17 +78,17 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-1">
-                Username
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Admin Email
               </label>
               <input
-                id="username"
-                name="username"
-                type="text"
+                id="email"
+                name="email"
+                type="email"
                 required
                 className="relative block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter your username"
-                value={credentials.username}
+                placeholder="Enter your admin email"
+                value={credentials.email}
                 onChange={handleInputChange}
               />
             </div>
@@ -97,9 +117,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
 
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-sm text-blue-600">
-              <strong>Demo Credentials:</strong><br />
-              Username: admin<br />
-              Password: admin123
+              <strong>Note:</strong><br />
+              Only users with admin privileges can access this panel.
+              Please use your admin email and password.
             </p>
           </div>
 

@@ -31,12 +31,16 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleAddToCart = async () => {
     setIsAdding(true);
-    addToCart(product);
-    
-    // Add a small delay for visual feedback
-    setTimeout(() => {
-      setIsAdding(false);
-    }, 500);
+    try {
+      await addToCart(product);
+    } catch (error) {
+      console.error('Failed to add product to cart:', error);
+    } finally {
+      // Add a small delay for visual feedback
+      setTimeout(() => {
+        setIsAdding(false);
+      }, 500);
+    }
   };
 
   // Check if product is already in cart

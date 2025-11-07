@@ -14,7 +14,20 @@ interface Product {
   stock_quantity: number;
 }
 
-const Products: React.FC = () => {
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  user_type: 'customer' | 'admin';
+}
+
+interface ProductsProps {
+  user?: User | null;
+  onLogout?: () => void;
+}
+
+const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

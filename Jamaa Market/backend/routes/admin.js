@@ -1,13 +1,7 @@
 const express = require('express');
 const { pool } = require('../config/database');
+const { authenticateAdmin } = require('./auth');
 const router = express.Router();
-
-// Middleware for admin authentication (simplified for demo)
-const authenticateAdmin = (req, res, next) => {
-  // In a real application, you would verify JWT token here
-  // For demo purposes, we'll just pass through
-  next();
-};
 
 // GET all products for admin
 router.get('/products', authenticateAdmin, async (req, res) => {

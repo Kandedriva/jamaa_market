@@ -4,6 +4,8 @@ require('dotenv').config();
 
 const { connectDB } = require('./config/database');
 const createTables = require('./scripts/createTables');
+const createUsersTable = require('./scripts/createUsersTable');
+const createCartTable = require('./scripts/createCartTable');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -27,10 +29,20 @@ app.use('/api/products', productRoutes);
 const adminRoutes = require('./routes/admin');
 app.use('/api/admin', adminRoutes);
 
+// Authentication routes
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
+// Cart routes
+const cartRoutes = require('./routes/cart');
+app.use('/api/cart', cartRoutes);
+
 const startServer = async () => {
   try {
     await connectDB();
     await createTables();
+    await createUsersTable();
+    await createCartTable();
     
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
