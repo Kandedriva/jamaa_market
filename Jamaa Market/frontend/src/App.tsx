@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Products from './pages/Products';
 import AdminPage from './pages/AdminPage';
+import UserAccount from './pages/UserAccount';
 import AdminLogin from './components/admin/AdminLogin';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
@@ -110,7 +111,7 @@ function AppContent() {
     setCurrentRoute(path);
   };
 
-  // Add global click handler for admin links
+  // Add global click handler for navigation
   React.useEffect(() => {
     const handleLinkClick = (e: Event) => {
       const target = e.target as HTMLAnchorElement;
@@ -125,10 +126,10 @@ function AppContent() {
             window.history.pushState(null, '', url.pathname);
             setCurrentRoute(url.pathname);
           }
-        } else if (url.pathname === '/') {
+        } else if (url.pathname === '/' || url.pathname === '/account') {
           e.preventDefault();
-          window.history.pushState(null, '', '/');
-          setCurrentRoute('/');
+          window.history.pushState(null, '', url.pathname);
+          setCurrentRoute(url.pathname);
         }
       }
     };
@@ -166,6 +167,16 @@ function AppContent() {
       }
       return <AdminPage onLogout={handleLogout} />;
     }
+
+    // User account route
+    if (currentRoute === '/account') {
+      return (
+        <UserAccount 
+          onLogout={handleLogout}
+          onNavigateHome={() => navigateTo('/')}
+        />
+      );
+    }
     
     // Main store
     return (
@@ -178,6 +189,12 @@ function AppContent() {
             <div className="bg-white rounded-lg shadow-lg p-3 border">
               <p className="text-sm text-gray-600">Welcome, {user.full_name}!</p>
               <div className="mt-2 space-x-2">
+                <button
+                  onClick={() => navigateTo('/account')}
+                  className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors"
+                >
+                  My Account
+                </button>
                 {user.user_type === 'admin' && (
                   <button
                     onClick={() => navigateTo('/admin')}

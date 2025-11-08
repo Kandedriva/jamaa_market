@@ -37,6 +37,14 @@ app.use('/api/auth', authRoutes);
 const cartRoutes = require('./routes/cart');
 app.use('/api/cart', cartRoutes);
 
+// Notifications routes
+const notificationRoutes = require('./routes/notifications');
+app.use('/api/notifications', notificationRoutes);
+
+// Orders routes
+const orderRoutes = require('./routes/orders');
+app.use('/api/orders', orderRoutes);
+
 const startServer = async () => {
   try {
     await connectDB();
