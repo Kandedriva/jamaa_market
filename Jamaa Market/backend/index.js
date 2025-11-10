@@ -6,6 +6,7 @@ const { connectDB } = require('./config/database');
 const createTables = require('./scripts/createTables');
 const createUsersTable = require('./scripts/createUsersTable');
 const createCartTable = require('./scripts/createCartTable');
+const createStoresTable = require('./scripts/createStoresTable');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,12 +50,17 @@ app.use('/api/orders', orderRoutes);
 const driverRoutes = require('./routes/drivers');
 app.use('/api/drivers', driverRoutes);
 
+// Store routes
+const storeRoutes = require('./routes/store');
+app.use('/api/store', storeRoutes);
+
 const startServer = async () => {
   try {
     await connectDB();
     await createTables();
     await createUsersTable();
     await createCartTable();
+    await createStoresTable();
     
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

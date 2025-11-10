@@ -5,7 +5,8 @@ interface User {
   username: string;
   email: string;
   full_name: string;
-  user_type: 'customer' | 'admin';
+  user_type: 'customer' | 'admin' | 'store_owner';
+  store?: any;
 }
 
 interface NotificationsProps {

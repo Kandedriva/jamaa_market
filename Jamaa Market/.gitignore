@@ -32,4 +32,4 @@ pids
 *.pid.lock
 
 # Optional npm cache directory
-.npm
+.npmbackend/*.log

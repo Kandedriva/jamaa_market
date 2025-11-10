@@ -3,9 +3,14 @@ import Products from './pages/Products';
 import AdminPage from './pages/AdminPage';
 import UserAccount from './pages/UserAccount';
 import DriverDashboard from './pages/DriverDashboard';
+import StoreDashboard from './pages/StoreDashboard';
+import StorePage from './pages/StorePage';
+import AllStores from './pages/AllStores';
 import AdminLogin from './components/admin/AdminLogin';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
+import StoreOwnerLogin from './components/store/StoreOwnerLogin';
+import StoreOwnerRegister from './components/store/StoreOwnerRegister';
 import { CartProvider, useCart } from './context/CartContext';
 
 interface User {
@@ -13,13 +18,15 @@ interface User {
   username: string;
   email: string;
   full_name: string;
-  user_type: 'customer' | 'admin';
+  user_type: 'customer' | 'admin' | 'store_owner';
+  store?: any;
 }
 
 // Inner component that uses cart context
 function AppContent() {
   const [currentRoute, setCurrentRoute] = useState(window.location.pathname);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [isStoreOwnerAuthenticated, setIsStoreOwnerAuthenticated] = useState(false);
   const { user, setUser } = useCart();
 
   // Check for existing authentication on app load
@@ -44,9 +51,11 @@ function AppContent() {
               // Token is valid
               setUser(parsedUser);
               
-              // Set admin authentication if user is admin
+              // Set authentication based on user type
               if (parsedUser.user_type === 'admin') {
                 setIsAdminAuthenticated(true);
+              } else if (parsedUser.user_type === 'store_owner') {
+                setIsStoreOwnerAuthenticated(true);
               }
             } else {
               // Token is invalid, clear stored data
@@ -59,6 +68,8 @@ function AppContent() {
             
             if (parsedUser.user_type === 'admin') {
               setIsAdminAuthenticated(true);
+            } else if (parsedUser.user_type === 'store_owner') {
+              setIsStoreOwnerAuthenticated(true);
             }
           }
         } catch (parseError) {
@@ -88,13 +99,17 @@ function AppContent() {
     // Store token with correct key name
     localStorage.setItem('jamaa-market-token', token);
     
-    // If admin user, set admin authentication
+    // Route based on user type
     if (userData.user_type === 'admin') {
       setIsAdminAuthenticated(true);
       window.history.pushState(null, '', '/admin');
       setCurrentRoute('/admin');
+    } else if (userData.user_type === 'store_owner') {
+      setIsStoreOwnerAuthenticated(true);
+      window.history.pushState(null, '', '/store/dashboard');
+      setCurrentRoute('/store/dashboard');
     } else {
-      // Regular user goes to store
+      // Regular customer goes to store
       window.history.pushState(null, '', '/');
       setCurrentRoute('/');
     }
@@ -123,10 +138,35 @@ function AppContent() {
     setCurrentRoute('/admin');
   };
 
+  const handleStoreOwnerLogin = (userData: User, token: string) => {
+    setUser(userData);
+    
+    // Store token with correct key name
+    localStorage.setItem('jamaa-market-token', token);
+    
+    // Set store owner authentication
+    setIsStoreOwnerAuthenticated(true);
+    window.history.pushState(null, '', '/store/dashboard');
+    setCurrentRoute('/store/dashboard');
+  };
+
+  const handleStoreOwnerRegister = (userData: User, token: string) => {
+    setUser(userData);
+    
+    // Store token with correct key name
+    localStorage.setItem('jamaa-market-token', token);
+    
+    // Set store owner authentication
+    setIsStoreOwnerAuthenticated(true);
+    window.history.pushState(null, '', '/store/dashboard');
+    setCurrentRoute('/store/dashboard');
+  };
+
   const handleLogout = () => {
     // Clear authentication state
     setUser(null);
     setIsAdminAuthenticated(false);
+    setIsStoreOwnerAuthenticated(false);
     
     // Cart context will handle clearing localStorage and cart
     
@@ -155,7 +195,16 @@ function AppContent() {
             window.history.pushState(null, '', url.pathname);
             setCurrentRoute(url.pathname);
           }
-        } else if (url.pathname === '/' || url.pathname === '/account' || url.pathname === '/driver') {
+        } else if (url.pathname.startsWith('/store/')) {
+          e.preventDefault();
+          if (!isStoreOwnerAuthenticated && !url.pathname.includes('/login') && !url.pathname.includes('/register')) {
+            window.history.pushState(null, '', '/store/login');
+            setCurrentRoute('/store/login');
+          } else {
+            window.history.pushState(null, '', url.pathname);
+            setCurrentRoute(url.pathname);
+          }
+        } else if (url.pathname === '/' || url.pathname === '/account' || url.pathname === '/driver' || url.pathname === '/sellers' || url.pathname === '/stores') {
           e.preventDefault();
           window.history.pushState(null, '', url.pathname);
           setCurrentRoute(url.pathname);
@@ -165,7 +214,7 @@ function AppContent() {
 
     document.addEventListener('click', handleLinkClick);
     return () => document.removeEventListener('click', handleLinkClick);
-  }, [isAdminAuthenticated]);
+  }, [isAdminAuthenticated, isStoreOwnerAuthenticated]);
 
   const renderPage = () => {
     // Authentication routes
@@ -187,6 +236,41 @@ function AppContent() {
           onNavigateToStore={() => navigateTo('/')}
         />
       );
+    }
+
+    // Store owner routes  
+    if (currentRoute.startsWith('/store/')) {
+      if (currentRoute === '/store/register') {
+        return (
+          <StoreOwnerRegister
+            onRegisterSuccess={handleStoreOwnerRegister}
+            onNavigateToLogin={() => navigateTo('/store/login')}
+            onNavigateHome={() => navigateTo('/')}
+          />
+        );
+      }
+      
+      if (currentRoute === '/store/login') {
+        return (
+          <StoreOwnerLogin
+            onLoginSuccess={handleStoreOwnerLogin}
+            onNavigateToRegister={() => navigateTo('/store/register')}
+            onNavigateHome={() => navigateTo('/')}
+          />
+        );
+      }
+      
+      if (!isStoreOwnerAuthenticated) {
+        return (
+          <StoreOwnerLogin
+            onLoginSuccess={handleStoreOwnerLogin}
+            onNavigateToRegister={() => navigateTo('/store/register')}
+            onNavigateHome={() => navigateTo('/')}
+          />
+        );
+      }
+      
+      return <StoreDashboard storeOwner={user!} onLogout={handleLogout} />;
     }
 
     // Admin routes
@@ -214,6 +298,16 @@ function AppContent() {
           onNavigateHome={() => navigateTo('/')}
         />
       );
+    }
+
+    // Store/Sellers information page
+    if (currentRoute === '/sellers') {
+      return <StorePage />;
+    }
+
+    // All stores listing page
+    if (currentRoute === '/stores') {
+      return <AllStores />;
     }
     
     // Main store
