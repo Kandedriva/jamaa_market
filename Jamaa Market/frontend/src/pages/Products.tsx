@@ -119,13 +119,13 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
               <span>Browse Stores</span>
             </a>
 
-            {/* Store Portal Link */}
+            {/* Sell on Jamaa Link */}
             <a
-              href="/sellers"
+              href="/store/register"
               className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               <span>Sell on Jamaa</span>
             </a>
@@ -158,7 +158,6 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
           </div>
         </div>
       </header>
-
 
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">

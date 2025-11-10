@@ -3,6 +3,20 @@ import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
+interface User {
+  id: number;
+  username: string;
+  email: string;
+  full_name: string;
+  user_type: 'customer' | 'admin' | 'store_owner';
+  store?: any;
+}
+
+interface AllStoresProps {
+  user?: User | null;
+  onLogout?: () => void;
+}
+
 interface Store {
   id: number;
   store_name: string;
@@ -16,7 +30,7 @@ interface Store {
   owner_email: string;
 }
 
-const AllStores: React.FC = () => {
+const AllStores: React.FC<AllStoresProps> = ({ user, onLogout }) => {
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
