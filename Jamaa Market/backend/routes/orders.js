@@ -4,6 +4,56 @@ const { authenticateToken } = require('./auth');
 
 const router = express.Router();
 
+// Driver assignment logic
+async function assignOrderToDriver(client, orderId) {
+  try {
+    // Find an available online driver
+    const availableDriverQuery = `
+      SELECT id FROM drivers 
+      WHERE status = 'online' AND is_verified = true
+      ORDER BY (total_deliveries / COALESCE(NULLIF(rating, 0), 1)) ASC, total_deliveries ASC
+      LIMIT 1
+    `;
+    
+    const driverResult = await client.query(availableDriverQuery);
+    
+    if (driverResult.rows.length > 0) {
+      const driverId = driverResult.rows[0].id;
+      
+      // Assign driver to order and update status
+      await client.query(
+        `UPDATE orders 
+         SET driver_id = $1, status = 'assigned', assigned_at = CURRENT_TIMESTAMP,
+             estimated_delivery = CURRENT_TIMESTAMP + INTERVAL '2 hours'
+         WHERE id = $2`,
+        [driverId, orderId]
+      );
+      
+      // Update driver status to busy
+      await client.query(
+        'UPDATE drivers SET status = $1 WHERE id = $2',
+        ['busy', driverId]
+      );
+      
+      // Create delivery tracking entry
+      await client.query(
+        `INSERT INTO delivery_tracking (order_id, driver_id, status, timestamp)
+         VALUES ($1, $2, 'assigned', CURRENT_TIMESTAMP)`,
+        [orderId, driverId]
+      );
+      
+      console.log(`Order ${orderId} assigned to driver ${driverId}`);
+      return driverId;
+    } else {
+      console.log(`No available drivers for order ${orderId}`);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error assigning order to driver:', error);
+    return null;
+  }
+}
+
 // GET user orders
 router.get('/', authenticateToken, async (req, res) => {
   try {
@@ -217,6 +267,9 @@ router.post('/', authenticateToken, async (req, res) => {
       ]);
 
       const order = orderResult.rows[0];
+
+      // Auto-assign to available driver
+      await assignOrderToDriver(client, order.id);
 
       // Create order items
       for (const item of validatedItems) {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
 interface Product {
   id: number;
   name: string;
@@ -45,7 +47,7 @@ const ProductManagement: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:3001/api/products');
+      const response = await axios.get(`${API_BASE_URL}/products`);
       if (response.data.success) {
         setProducts(response.data.data);
       }
@@ -66,9 +68,9 @@ const ProductManagement: React.FC = () => {
       };
 
       if (editingProduct) {
-        await axios.put(`http://localhost:3001/api/admin/products/${editingProduct.id}`, productData);
+        await axios.put(`${API_BASE_URL}/admin/products/${editingProduct.id}`, productData);
       } else {
-        await axios.post('http://localhost:3001/api/admin/products', productData);
+        await axios.post(`${API_BASE_URL}/admin/products`, productData);
       }
 
       await fetchProducts();
@@ -95,7 +97,7 @@ const ProductManagement: React.FC = () => {
   const handleDelete = async (productId: number) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        await axios.delete(`http://localhost:3001/api/admin/products/${productId}`);
+        await axios.delete(`${API_BASE_URL}/admin/products/${productId}`);
         await fetchProducts();
       } catch (error) {
         console.error('Error deleting product:', error);

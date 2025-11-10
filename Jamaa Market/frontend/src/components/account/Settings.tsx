@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useCart } from '../../context/CartContext';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 interface User {
   id: number;
@@ -19,6 +20,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
+  const { setUser } = useCart();
   const [activeTab, setActiveTab] = useState<'profile' | 'password' | 'notifications' | 'privacy'>('profile');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -55,8 +57,56 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
     e.preventDefault();
     setLoading(true);
 
+    const requestId = Date.now(); // Unique ID for this request
+    console.log(`[${requestId}] Starting profile update request`);
+
     try {
       const token = localStorage.getItem('jamaa-market-token');
+      
+      if (!token) {
+        console.log(`[${requestId}] No token found`);
+        showMessage('error', 'Authentication required. Please log in again.');
+        return;
+      }
+
+      console.log('Updating profile with token:', token ? 'Token exists' : 'No token');
+      console.log('Token preview:', token ? token.substring(0, 50) + '...' : 'No token');
+      console.log('API URL:', `${API_BASE_URL}/auth/profile`);
+      console.log('Request data:', {
+        fullName: profileForm.fullName,
+        phone: profileForm.phone,
+        address: profileForm.address
+      });
+      
+      // Test if token is valid by checking its structure
+      if (token) {
+        try {
+          const tokenParts = token.split('.');
+          if (tokenParts.length !== 3) {
+            console.error('Invalid JWT token format');
+            showMessage('error', 'Invalid authentication token. Please log in again.');
+            setTimeout(() => onLogout(), 1500);
+            return;
+          }
+          
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log('Token payload:', payload);
+          
+          // Check if token is expired
+          if (payload.exp && Date.now() >= payload.exp * 1000) {
+            console.error('Token is expired');
+            showMessage('error', 'Your session has expired. Please log in again.');
+            setTimeout(() => onLogout(), 1500);
+            return;
+          }
+        } catch (tokenError) {
+          console.error('Error parsing token:', tokenError);
+          showMessage('error', 'Invalid authentication token. Please log in again.');
+          setTimeout(() => onLogout(), 1500);
+          return;
+        }
+      }
+      
       const response = await axios.put(
         `${API_BASE_URL}/auth/profile`,
         {
@@ -69,18 +119,40 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
         }
       );
 
+      console.log(`[${requestId}] Profile update response:`, response.data);
+
       if (response.data.success) {
+        console.log(`[${requestId}] Profile update successful`);
         showMessage('success', 'Profile updated successfully!');
-        // Update local user data
-        localStorage.setItem('jamaa-market-user', JSON.stringify({
+        
+        // Use the user data returned from the backend to ensure consistency
+        const updatedUser = {
           ...user,
-          full_name: profileForm.fullName,
-          phone: profileForm.phone,
-          address: profileForm.address
-        }));
+          ...response.data.data.user
+        };
+        
+        // Update global user state (this also updates localStorage via the cart context)
+        setUser(updatedUser);
       }
     } catch (error: any) {
-      showMessage('error', error.response?.data?.message || 'Failed to update profile');
+      console.error(`[${requestId}] Profile update error:`, error);
+      console.error('Error response:', error.response);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      
+      if (error.response?.status === 403 || error.response?.status === 401) {
+        // Token expired or invalid - clear stored data and redirect to login
+        showMessage('error', 'Your session has expired. Please log in again.');
+        setTimeout(() => {
+          // Clear stored authentication data
+          localStorage.removeItem('jamaa-market-token');
+          localStorage.removeItem('jamaa-market-user');
+          // Trigger logout which will redirect to login
+          onLogout();
+        }, 2000);
+      } else {
+        showMessage('error', error.response?.data?.message || 'Failed to update profile. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -416,11 +488,24 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
                   <div className="p-4 border border-gray-200 bg-gray-50 rounded-lg">
                     <h4 className="font-medium text-gray-800 mb-2">Login Sessions</h4>
                     <p className="text-sm text-gray-600 mb-3">
-                      Manage your active login sessions and sign out of other devices.
+                      If you're experiencing authentication issues, try refreshing your session.
                     </p>
-                    <button className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
-                      Manage Sessions
-                    </button>
+                    <div className="space-x-2">
+                      <button
+                        onClick={() => {
+                          localStorage.removeItem('jamaa-market-token');
+                          localStorage.removeItem('jamaa-market-user');
+                          showMessage('success', 'Session data cleared. Please log in again.');
+                          setTimeout(() => onLogout(), 1500);
+                        }}
+                        className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors text-sm"
+                      >
+                        Refresh Session
+                      </button>
+                      <button className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm">
+                        Manage Sessions
+                      </button>
+                    </div>
                   </div>
 
                   <div className="p-4 border border-red-200 bg-red-50 rounded-lg">

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
 interface DashboardStats {
   totalProducts: number;
   totalOrders: number;
@@ -33,7 +35,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     try {
       setLoading(true);
       // For now, we'll use mock data since we don't have orders/users yet
-      const productsResponse = await axios.get('http://localhost:3001/api/products');
+      const productsResponse = await axios.get(`${API_BASE_URL}/products`);
       
       // Mock data for demonstration
       setStats({

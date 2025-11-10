@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
 interface RegisterProps {
   onRegisterSuccess: (user: any, token: string) => void;
   onNavigateToLogin: () => void;
@@ -94,7 +96,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigateToLogi
 
     try {
       const { confirmPassword, ...submitData } = formData;
-      const response = await axios.post('http://localhost:3001/api/auth/register', submitData);
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, submitData);
       
       if (response.data.success) {
         const { user, token } = response.data.data;

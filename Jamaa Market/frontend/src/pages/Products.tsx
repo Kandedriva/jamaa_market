@@ -4,6 +4,8 @@ import ProductCard from '../components/ProductCard';
 import CartDrawer from '../components/CartDrawer';
 import { useCart } from '../context/CartContext';
 
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
 interface Product {
   id: number;
   name: string;
@@ -43,7 +45,7 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:3001/api/products');
+      const response = await axios.get(`${API_BASE_URL}/products`);
       if (response.data.success) {
         setProducts(response.data.data);
       } else {
@@ -104,20 +106,33 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
             </div>
           </div>
           
-          {/* Cart Icon */}
-          <button
-            onClick={toggleCart}
-            className="relative p-3 hover:bg-blue-700 rounded-full transition-colors duration-200"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
-            </svg>
-            {getTotalItems() > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">
-                {getTotalItems()}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center space-x-4">
+            {/* Driver Portal Link */}
+            <a
+              href="/driver"
+              className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Driver Portal</span>
+            </a>
+
+            {/* Cart Icon */}
+            <button
+              onClick={toggleCart}
+              className="relative p-3 hover:bg-blue-700 rounded-full transition-colors duration-200"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
+              </svg>
+              {getTotalItems() > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-bold">
+                  {getTotalItems()}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 

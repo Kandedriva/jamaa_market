@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Products from './pages/Products';
 import AdminPage from './pages/AdminPage';
 import UserAccount from './pages/UserAccount';
+import DriverDashboard from './pages/DriverDashboard';
 import AdminLogin from './components/admin/AdminLogin';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
@@ -23,24 +24,52 @@ function AppContent() {
 
   // Check for existing authentication on app load
   useEffect(() => {
-    const token = localStorage.getItem('jamaa-market-token');
-    const userData = localStorage.getItem('jamaa-market-user');
-    
-    if (token && userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        
-        // Set admin authentication if user is admin
-        if (parsedUser.user_type === 'admin') {
-          setIsAdminAuthenticated(true);
+    const validateStoredAuth = async () => {
+      const token = localStorage.getItem('jamaa-market-token');
+      const userData = localStorage.getItem('jamaa-market-user');
+      
+      if (token && userData) {
+        try {
+          const parsedUser = JSON.parse(userData);
+          
+          // Validate token by making a test request
+          try {
+            const response = await fetch('http://localhost:3001/api/auth/profile', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (response.ok) {
+              // Token is valid
+              setUser(parsedUser);
+              
+              // Set admin authentication if user is admin
+              if (parsedUser.user_type === 'admin') {
+                setIsAdminAuthenticated(true);
+              }
+            } else {
+              // Token is invalid, clear stored data
+              localStorage.removeItem('jamaa-market-token');
+              localStorage.removeItem('jamaa-market-user');
+            }
+          } catch (networkError) {
+            // Network error, assume token might still be valid for now
+            setUser(parsedUser);
+            
+            if (parsedUser.user_type === 'admin') {
+              setIsAdminAuthenticated(true);
+            }
+          }
+        } catch (parseError) {
+          // Invalid stored data, clear it
+          localStorage.removeItem('jamaa-market-token');
+          localStorage.removeItem('jamaa-market-user');
         }
-      } catch (error) {
-        // Invalid stored data, clear it
-        localStorage.removeItem('jamaa-market-token');
-        localStorage.removeItem('jamaa-market-user');
       }
-    }
+    };
+
+    validateStoredAuth();
   }, [setUser]);
 
   // Simple routing system
@@ -126,7 +155,7 @@ function AppContent() {
             window.history.pushState(null, '', url.pathname);
             setCurrentRoute(url.pathname);
           }
-        } else if (url.pathname === '/' || url.pathname === '/account') {
+        } else if (url.pathname === '/' || url.pathname === '/account' || url.pathname === '/driver') {
           e.preventDefault();
           window.history.pushState(null, '', url.pathname);
           setCurrentRoute(url.pathname);
@@ -173,6 +202,15 @@ function AppContent() {
       return (
         <UserAccount 
           onLogout={handleLogout}
+          onNavigateHome={() => navigateTo('/')}
+        />
+      );
+    }
+
+    // Driver dashboard route
+    if (currentRoute === '/driver') {
+      return (
+        <DriverDashboard 
           onNavigateHome={() => navigateTo('/')}
         />
       );
