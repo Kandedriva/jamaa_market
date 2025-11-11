@@ -276,4 +276,152 @@ router.get('/analytics/categories', authenticateAdmin, async (req, res) => {
   }
 });
 
+// === STORE MANAGEMENT ENDPOINTS ===
+
+// GET all stores for admin
+router.get('/stores', authenticateAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        s.*,
+        u.full_name as owner_name,
+        u.email as owner_email,
+        u.phone as owner_phone
+      FROM stores s
+      JOIN users u ON s.owner_id = u.id
+      ORDER BY s.created_at DESC
+    `);
+    
+    // Parse the categories JSON field
+    const stores = result.rows.map(store => ({
+      ...store,
+      categories: typeof store.categories === 'string' ? JSON.parse(store.categories) : store.categories
+    }));
+
+    res.json({
+      success: true,
+      data: stores
+    });
+  } catch (error) {
+    console.error('Error fetching stores for admin:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch stores'
+    });
+  }
+});
+
+// PUT update store status
+router.put('/stores/:id/status', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    // Validate status
+    const validStatuses = ['pending', 'approved', 'suspended'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be pending, approved, or suspended'
+      });
+    }
+
+    const result = await pool.query(`
+      UPDATE stores 
+      SET status = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `, [status, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Store not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: result.rows[0],
+      message: `Store status updated to ${status}`
+    });
+  } catch (error) {
+    console.error('Error updating store status:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update store status'
+    });
+  }
+});
+
+// GET store details by ID
+router.get('/stores/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT 
+        s.*,
+        u.full_name as owner_name,
+        u.email as owner_email,
+        u.phone as owner_phone,
+        u.address as owner_address
+      FROM stores s
+      JOIN users u ON s.owner_id = u.id
+      WHERE s.id = $1
+    `, [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Store not found'
+      });
+    }
+
+    // Parse the categories JSON field
+    const store = {
+      ...result.rows[0],
+      categories: typeof result.rows[0].categories === 'string' 
+        ? JSON.parse(result.rows[0].categories) 
+        : result.rows[0].categories
+    };
+
+    res.json({
+      success: true,
+      data: store
+    });
+  } catch (error) {
+    console.error('Error fetching store details:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch store details'
+    });
+  }
+});
+
+// GET store statistics for admin dashboard
+router.get('/stores/stats', authenticateAdmin, async (req, res) => {
+  try {
+    const stats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_stores,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_stores,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved_stores,
+        COUNT(CASE WHEN status = 'suspended' THEN 1 END) as suspended_stores
+      FROM stores
+    `);
+
+    res.json({
+      success: true,
+      data: stats.rows[0]
+    });
+  } catch (error) {
+    console.error('Error fetching store statistics:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch store statistics'
+    });
+  }
+});
+
 module.exports = router;

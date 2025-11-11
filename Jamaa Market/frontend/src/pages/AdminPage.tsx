@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import AdminLayout from '../components/admin/AdminLayout';
 import Dashboard from '../components/admin/Dashboard';
 import ProductManagement from '../components/admin/ProductManagement';
+import StoreManagement from '../components/admin/StoreManagement';
 import UserManagement from '../components/admin/UserManagement';
 import OrderManagement from '../components/admin/OrderManagement';
 import Analytics from '../components/admin/Analytics';
@@ -35,6 +36,8 @@ const AdminPage: React.FC<AdminPageProps> = ({ onLogout }) => {
         return <Dashboard onNavigate={handleNavigation} />;
       case 'products':
         return <ProductManagement />;
+      case 'stores':
+        return <StoreManagement />;
       case 'orders':
         return <OrderManagement />;
       case 'users':
