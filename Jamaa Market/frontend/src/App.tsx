@@ -6,6 +6,7 @@ import DriverDashboard from './pages/DriverDashboard';
 import StoreDashboard from './pages/StoreDashboard';
 import StorePage from './pages/StorePage';
 import AllStores from './pages/AllStores';
+import StoreDetail from './pages/StoreDetail';
 import AdminLogin from './components/admin/AdminLogin';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
@@ -259,7 +260,28 @@ function AppContent() {
           />
         );
       }
+
+      if (currentRoute === '/store/dashboard') {
+        if (!isStoreOwnerAuthenticated) {
+          return (
+            <StoreOwnerLogin
+              onLoginSuccess={handleStoreOwnerLogin}
+              onNavigateToRegister={() => navigateTo('/store/register')}
+              onNavigateHome={() => navigateTo('/')}
+            />
+          );
+        }
+        
+        return <StoreDashboard storeOwner={user!} onLogout={handleLogout} />;
+      }
+
+      // Check if it's a store detail page (numeric ID)
+      const storeId = currentRoute.split('/store/')[1];
+      if (storeId && /^\d+$/.test(storeId)) {
+        return <StoreDetail storeId={storeId} user={user} onLogout={user ? handleLogout : undefined} />;
+      }
       
+      // Default fallback for unmatched /store/ routes
       if (!isStoreOwnerAuthenticated) {
         return (
           <StoreOwnerLogin
@@ -307,9 +329,9 @@ function AppContent() {
 
     // All stores listing page
     if (currentRoute === '/stores') {
-      return <AllStores />;
+      return <AllStores user={user} onLogout={user ? handleLogout : undefined} />;
     }
-    
+
     // Main store
     return (
       <div>

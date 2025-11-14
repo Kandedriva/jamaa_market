@@ -19,9 +19,11 @@ router.get('/all', async (req, res) => {
         s.status,
         s.created_at,
         u.full_name as owner_name,
-        u.email as owner_email
+        u.email as owner_email,
+        u.phone as owner_phone
       FROM stores s
       JOIN users u ON s.owner_id = u.id
+      WHERE s.status = 'approved'
       ORDER BY s.created_at DESC
     `;
 
@@ -45,6 +47,146 @@ router.get('/all', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch stores'
+    });
+  }
+});
+
+// GET /api/store/:id - Get single store details
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const storeQuery = `
+      SELECT 
+        s.id,
+        s.store_name,
+        s.store_description,
+        s.store_address,
+        s.business_type,
+        s.business_license,
+        s.categories,
+        s.status,
+        s.created_at,
+        s.updated_at,
+        u.full_name as owner_name,
+        u.email as owner_email,
+        u.phone as owner_phone
+      FROM stores s
+      JOIN users u ON s.owner_id = u.id
+      WHERE s.id = $1 AND s.status = 'approved'
+    `;
+
+    const result = await pool.query(storeQuery, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Store not found'
+      });
+    }
+
+    // Parse categories
+    const store = {
+      ...result.rows[0],
+      categories: result.rows[0].categories ? 
+        (typeof result.rows[0].categories === 'string' ? JSON.parse(result.rows[0].categories) : result.rows[0].categories) 
+        : []
+    };
+
+    res.json({
+      success: true,
+      data: store
+    });
+
+  } catch (error) {
+    console.error('Error fetching store details:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch store details'
+    });
+  }
+});
+
+// GET /api/store/:id/products - Get products for a specific store
+router.get('/:id/products', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const search = req.query.search || '';
+    const sort = req.query.sort || 'created_at';
+    const order = req.query.order || 'DESC';
+    const offset = (page - 1) * limit;
+
+    // First, verify store exists and is approved
+    const storeCheck = await pool.query('SELECT id, store_name, status FROM stores WHERE id = $1', [id]);
+    if (storeCheck.rows.length === 0 || storeCheck.rows[0].status !== 'approved') {
+      return res.status(404).json({
+        success: false,
+        message: 'Store not found or not available'
+      });
+    }
+
+    // Build search condition
+    let searchCondition = '';
+    let queryParams = [id];
+    
+    if (search) {
+      searchCondition = 'AND (name ILIKE $2 OR description ILIKE $2 OR category ILIKE $2)';
+      queryParams.push(`%${search}%`);
+    }
+
+    // Validate sort field
+    const validSortFields = ['name', 'price', 'created_at', 'stock_quantity'];
+    const validOrder = ['ASC', 'DESC'];
+    const sortField = validSortFields.includes(sort) ? sort : 'created_at';
+    const sortOrder = validOrder.includes(order.toUpperCase()) ? order.toUpperCase() : 'DESC';
+
+    // Get total count
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM products 
+      WHERE store_id = $1 ${searchCondition}
+    `;
+    const countResult = await pool.query(countQuery, queryParams);
+    const totalProducts = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    // Get products
+    const productsQuery = `
+      SELECT id, name, description, price, category, image_url, stock_quantity, created_at, updated_at
+      FROM products 
+      WHERE store_id = $1 ${searchCondition}
+      ORDER BY ${sortField} ${sortOrder}
+      LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}
+    `;
+    
+    queryParams.push(limit, offset);
+    const productsResult = await pool.query(productsQuery, queryParams);
+
+    const pagination = {
+      currentPage: page,
+      totalPages,
+      totalProducts,
+      limit,
+      hasNextPage: page < totalPages,
+      hasPreviousPage: page > 1
+    };
+
+    res.json({
+      success: true,
+      data: {
+        store: storeCheck.rows[0],
+        products: productsResult.rows,
+        pagination
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching store products:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch store products'
     });
   }
 });
