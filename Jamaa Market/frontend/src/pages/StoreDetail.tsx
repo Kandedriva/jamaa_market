@@ -264,7 +264,7 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
                   {state.items.reduce((total, item) => total + item.quantity, 0)} items
                 </span>
                 <span className="text-white">
-                  ${state.total.toFixed(2)}
+                  ${state.items.reduce((total, item) => total + (item.quantity * item.price), 0).toFixed(2)}
                 </span>
               </div>
             )}
