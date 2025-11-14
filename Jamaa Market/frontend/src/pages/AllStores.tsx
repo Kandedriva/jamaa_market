@@ -28,6 +28,7 @@ interface Store {
   created_at: string;
   owner_name: string;
   owner_email: string;
+  owner_phone: string;
 }
 
 const AllStores: React.FC<AllStoresProps> = ({ user, onLogout }) => {

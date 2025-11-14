@@ -5,6 +5,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 interface Product {
   id: number;
+  store_id?: number;
   name: string;
   description: string;
   price: number;

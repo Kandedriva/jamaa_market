@@ -154,7 +154,7 @@ router.get('/:id/products', async (req, res) => {
 
     // Get products
     const productsQuery = `
-      SELECT id, name, description, price, category, image_url, stock_quantity, created_at, updated_at
+      SELECT id, store_id, name, description, price, category, image_url, stock_quantity, created_at, updated_at
       FROM products 
       WHERE store_id = $1 ${searchCondition}
       ORDER BY ${sortField} ${sortOrder}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ProductCard from '../components/ProductCard';
+import { useCart } from '../context/CartContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -22,6 +23,7 @@ interface Store {
 
 interface Product {
   id: number;
+  store_id: number;
   name: string;
   description: string;
   price: number;
@@ -67,6 +69,7 @@ interface StoreDetailProps {
 }
 
 const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) => {
+  const { state } = useCart();
   
   const [store, setStore] = useState<Store | null>(null);
   const [storeData, setStoreData] = useState<StoreDetailData | null>(null);
@@ -251,6 +254,21 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
           </div>
           
           <div className="flex items-center space-x-4">
+            {/* Cart Summary */}
+            {state.items.length > 0 && (
+              <div className="flex items-center space-x-2 bg-blue-700 rounded-md px-3 py-2">
+                <svg className="w-4 h-4 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
+                </svg>
+                <span className="text-yellow-300 font-medium">
+                  {state.items.reduce((total, item) => total + item.quantity, 0)} items
+                </span>
+                <span className="text-white">
+                  ${state.total.toFixed(2)}
+                </span>
+              </div>
+            )}
+
             <button
               onClick={() => setShowContactModal(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
@@ -384,6 +402,40 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
             </div>
           </div>
         </div>
+
+        {/* Store Cart Summary */}
+        {storeData && state.items.filter(item => item.store_id === parseInt(storeId)).length > 0 && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
+            <h3 className="text-lg font-semibold text-green-800 mb-2">
+              🛒 Cart Items from {store?.store_name}
+            </h3>
+            <div className="space-y-2">
+              {state.items
+                .filter(item => item.store_id === parseInt(storeId))
+                .map(item => (
+                  <div key={item.id} className="flex justify-between items-center">
+                    <span className="text-green-700">{item.name}</span>
+                    <span className="text-green-600 font-medium">
+                      {item.quantity} × ${item.price} = ${(item.quantity * item.price).toFixed(2)}
+                    </span>
+                  </div>
+                ))
+              }
+              <div className="pt-2 border-t border-green-200">
+                <div className="flex justify-between items-center font-bold text-green-800">
+                  <span>Store Total:</span>
+                  <span>
+                    ${state.items
+                      .filter(item => item.store_id === parseInt(storeId))
+                      .reduce((total, item) => total + (item.quantity * item.price), 0)
+                      .toFixed(2)
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Products Section */}
         <div className="bg-white rounded-lg shadow-md p-6">
