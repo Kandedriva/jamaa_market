@@ -196,12 +196,34 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// POST create new order
-router.post('/', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { items, shippingAddress, paymentMethod } = req.body;
+// Middleware to authenticate users (optional for guest checkout)
+function authenticateUser(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
 
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  const jwt = require('jsonwebtoken');
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      req.user = null;
+    } else {
+      req.user = user;
+    }
+    next();
+  });
+}
+
+// POST create new order (updated for store-based cart)
+router.post('/', authenticateUser, async (req, res) => {
+  try {
+    const { items, customer_info, total_amount } = req.body;
+
+    // Validation
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
@@ -209,10 +231,17 @@ router.post('/', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!shippingAddress || !paymentMethod) {
+    if (!customer_info || !customer_info.fullName || !customer_info.email || !customer_info.phone || !customer_info.address) {
       return res.status(400).json({
         success: false,
-        message: 'Shipping address and payment method are required'
+        message: 'Customer information is required (name, email, phone, address)'
+      });
+    }
+
+    if (!total_amount || total_amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid total amount is required'
       });
     }
 
@@ -221,98 +250,91 @@ router.post('/', authenticateToken, async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      // Calculate total and validate items
-      let total = 0;
-      const validatedItems = [];
-
-      for (const item of items) {
-        const productQuery = await client.query(
-          'SELECT id, name, price, stock_quantity FROM products WHERE id = $1',
-          [item.productId]
-        );
-
-        if (productQuery.rows.length === 0) {
-          throw new Error(`Product with ID ${item.productId} not found`);
-        }
-
-        const product = productQuery.rows[0];
-
-        if (product.stock_quantity < item.quantity) {
-          throw new Error(`Insufficient stock for product ${product.name}`);
-        }
-
-        const itemTotal = parseFloat(product.price) * item.quantity;
-        total += itemTotal;
-
-        validatedItems.push({
-          productId: product.id,
-          name: product.name,
-          quantity: item.quantity,
-          price: product.price
-        });
-      }
-
       // Generate order number
       const orderNumber = 'JM' + Date.now().toString().slice(-8);
 
-      // Create order
+      // Insert order with customer information
       const orderQuery = `
-        INSERT INTO orders (user_id, order_number, status, total, shipping_address, payment_method, created_at)
-        VALUES ($1, $2, 'pending', $3, $4, $5, CURRENT_TIMESTAMP)
+        INSERT INTO orders (
+          user_id, order_number, status, total, 
+          customer_name, customer_email, customer_phone, 
+          shipping_address, order_notes, created_at
+        )
+        VALUES ($1, $2, 'pending', $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
         RETURNING id, order_number, created_at
       `;
 
       const orderResult = await client.query(orderQuery, [
-        userId, orderNumber, total, shippingAddress, paymentMethod
+        req.user ? req.user.userId : null,
+        orderNumber,
+        total_amount,
+        customer_info.fullName,
+        customer_info.email,
+        customer_info.phone,
+        customer_info.address,
+        customer_info.notes || null
       ]);
 
       const order = orderResult.rows[0];
 
-      // Auto-assign to available driver
-      await assignOrderToDriver(client, order.id);
+      // Insert order items
+      const orderItemQuery = `
+        INSERT INTO order_items (order_id, product_id, quantity, price, price_per_item)
+        VALUES ($1, $2, $3, $4, $5)
+      `;
 
-      // Create order items
-      for (const item of validatedItems) {
-        await client.query(
-          'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES ($1, $2, $3, $4)',
-          [order.id, item.productId, item.quantity, item.price]
-        );
+      for (const item of items) {
+        const totalPrice = item.price_per_item * item.quantity;
+        await client.query(orderItemQuery, [
+          order.id,
+          item.product_id,
+          item.quantity,
+          totalPrice,
+          item.price_per_item
+        ]);
 
-        // Update stock
+        // Update product stock
         await client.query(
           'UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2',
-          [item.quantity, item.productId]
+          [item.quantity, item.product_id]
         );
       }
 
-      // Clear user's cart
-      await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+      // Auto-assign to available driver if user is authenticated
+      if (req.user) {
+        await assignOrderToDriver(client, order.id);
+        
+        // Clear user's cart if authenticated
+        await client.query('DELETE FROM cart_items WHERE user_id = $1', [req.user.userId]);
+      }
 
       await client.query('COMMIT');
 
-      // Create notification
-      await client.query(
-        `INSERT INTO notifications (user_id, title, message, type, action_link, is_read, created_at)
-         VALUES ($1, $2, $3, $4, $5, false, CURRENT_TIMESTAMP)`,
-        [
-          userId,
-          'Order Confirmed',
-          `Your order ${orderNumber} has been confirmed and is being processed.`,
-          'order',
-          `/account/orders/${order.id}`
-        ]
-      );
+      // Create notification only for authenticated users
+      if (req.user) {
+        await client.query(
+          `INSERT INTO notifications (user_id, title, message, type, action_link, is_read, created_at)
+           VALUES ($1, $2, $3, $4, $5, false, CURRENT_TIMESTAMP)`,
+          [
+            req.user.userId,
+            'Order Confirmed',
+            `Your order ${orderNumber} has been confirmed and is being processed.`,
+            'order',
+            `/account/orders/${order.id}`
+          ]
+        );
+      }
 
       res.status(201).json({
         success: true,
+        message: 'Order placed successfully',
         data: {
-          id: order.id,
-          orderNumber: order.order_number,
-          total,
-          status: 'pending',
-          orderDate: order.created_at
-        },
-        message: 'Order created successfully'
+          order_id: order.id,
+          order_number: orderNumber,
+          total_amount,
+          created_at: order.created_at,
+          status: 'pending'
+        }
       });
 
     } catch (error) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ProductCard from '../components/ProductCard';
+import CartSidebar from '../components/CartSidebar';
 import { useCart } from '../context/CartContext';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -81,6 +82,7 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('DESC');
   const [showContactModal, setShowContactModal] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
 
   useEffect(() => {
     if (storeId) {
@@ -254,20 +256,32 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Cart Summary */}
-            {state.items.length > 0 && (
-              <div className="flex items-center space-x-2 bg-blue-700 rounded-md px-3 py-2">
-                <svg className="w-4 h-4 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
-                </svg>
-                <span className="text-yellow-300 font-medium">
-                  {state.items.reduce((total, item) => total + item.quantity, 0)} items
+            {/* Cart Button */}
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="flex items-center space-x-2 bg-blue-700 rounded-md px-3 py-2 hover:bg-blue-800 transition-colors relative"
+            >
+              <svg className="w-4 h-4 text-yellow-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 2.5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6" />
+              </svg>
+              {state.items.length > 0 ? (
+                <>
+                  <span className="text-yellow-300 font-medium">
+                    {state.items.reduce((total, item) => total + item.quantity, 0)} items
+                  </span>
+                  <span className="text-white">
+                    ${state.items.reduce((total, item) => total + (item.quantity * item.price), 0).toFixed(2)}
+                  </span>
+                </>
+              ) : (
+                <span className="text-white">Cart</span>
+              )}
+              {state.items.filter(item => item.store_id === parseInt(storeId)).length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {state.items.filter(item => item.store_id === parseInt(storeId)).reduce((total, item) => total + item.quantity, 0)}
                 </span>
-                <span className="text-white">
-                  ${state.items.reduce((total, item) => total + (item.quantity * item.price), 0).toFixed(2)}
-                </span>
-              </div>
-            )}
+              )}
+            </button>
 
             <button
               onClick={() => setShowContactModal(true)}
@@ -515,6 +529,13 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
       </main>
 
       {showContactModal && <ContactModal />}
+      
+      <CartSidebar 
+        isOpen={isCartOpen} 
+        onClose={() => setIsCartOpen(false)}
+        user={user}
+        storeId={storeId}
+      />
     </div>
   );
 };

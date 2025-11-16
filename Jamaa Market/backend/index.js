@@ -7,6 +7,7 @@ const createTables = require('./scripts/createTables');
 const createUsersTable = require('./scripts/createUsersTable');
 const createCartTable = require('./scripts/createCartTable');
 const createStoresTable = require('./scripts/createStoresTable');
+const createOrdersTable = require('./scripts/createOrdersTable');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -61,6 +62,7 @@ const startServer = async () => {
     await createUsersTable();
     await createCartTable();
     await createStoresTable();
+    await createOrdersTable();
     
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

@@ -3,7 +3,6 @@ require('dotenv').config();
 
 async function createOrdersTable() {
   try {
-    await connectDB();
     
     console.log('Creating orders and order_items tables...');
 
@@ -11,14 +10,20 @@ async function createOrdersTable() {
     const createOrdersTableQuery = `
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         order_number VARCHAR(100) NOT NULL UNIQUE,
-        status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'shipped', 'delivered', 'cancelled')),
+        status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'preparing', 'ready', 'shipped', 'delivered', 'cancelled')),
         total DECIMAL(10, 2) NOT NULL,
+        customer_name VARCHAR(255) NOT NULL,
+        customer_email VARCHAR(255) NOT NULL,
+        customer_phone VARCHAR(50) NOT NULL,
         shipping_address TEXT NOT NULL,
-        payment_method VARCHAR(100) NOT NULL,
+        order_notes TEXT,
+        payment_method VARCHAR(100) DEFAULT 'cash_on_delivery',
         estimated_delivery TIMESTAMP,
         tracking_number VARCHAR(100),
+        driver_id INTEGER REFERENCES drivers(id) ON DELETE SET NULL,
+        assigned_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -34,11 +39,31 @@ async function createOrdersTable() {
         product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
         quantity INTEGER NOT NULL CHECK (quantity > 0),
         price DECIMAL(10, 2) NOT NULL,
+        price_per_item DECIMAL(10, 2) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `;
 
     await pool.query(createOrderItemsTableQuery);
+
+    // Ensure price_per_item column exists (for compatibility with existing tables)
+    try {
+      await pool.query(`
+        ALTER TABLE order_items 
+        ADD COLUMN IF NOT EXISTS price_per_item DECIMAL(10, 2)
+      `);
+      
+      // Update existing rows where price_per_item is null
+      await pool.query(`
+        UPDATE order_items 
+        SET price_per_item = price 
+        WHERE price_per_item IS NULL
+      `);
+      
+      console.log('✅ order_items table updated with price_per_item column');
+    } catch (alterError) {
+      console.log('Note: price_per_item column already exists or could not be added');
+    }
 
     // Create indexes for better performance
     const indexQueries = [
@@ -110,9 +135,7 @@ async function createOrdersTable() {
     
   } catch (error) {
     console.error('❌ Error creating orders tables:', error.message);
-  } finally {
-    await pool.end();
   }
 }
 
-createOrdersTable();
+module.exports = createOrdersTable;

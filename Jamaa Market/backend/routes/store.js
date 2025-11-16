@@ -5,6 +5,62 @@ const { pool } = require('../config/database');
 
 const router = express.Router();
 
+// JWT secret from environment variables
+const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
+
+// Middleware to authenticate store owners
+function authenticateStoreOwner(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Store owner access token required'
+    });
+  }
+
+  jwt.verify(token, JWT_SECRET, async (err, user) => {
+    if (err) {
+      console.error('JWT verification error:', err);
+      return res.status(403).json({
+        success: false,
+        message: 'Invalid or expired token'
+      });
+    }
+
+    // Check if user is store owner
+    if (user.userType !== 'store_owner') {
+      return res.status(403).json({
+        success: false,
+        message: 'Store owner access required'
+      });
+    }
+
+    // Get store ID for this store owner
+    try {
+      const storeQuery = 'SELECT id FROM stores WHERE owner_id = $1';
+      const result = await pool.query(storeQuery, [user.userId]);
+      
+      if (result.rows.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: 'No store found for this user'
+        });
+      }
+
+      req.user = { ...user, storeId: result.rows[0].id };
+      next();
+    } catch (error) {
+      console.error('Error verifying store owner:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Authentication error'
+      });
+    }
+  });
+}
+
 // GET /api/store/all - Get all stores for public listing
 router.get('/all', async (req, res) => {
   try {
@@ -47,6 +103,209 @@ router.get('/all', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to fetch stores'
+    });
+  }
+});
+
+// STORE OWNER AUTHENTICATED ROUTES - These must come before parametric routes!
+
+// GET /api/store/products - Get store owner's products
+router.get('/products', authenticateStoreOwner, async (req, res) => {
+  try {
+    const storeId = req.user.storeId;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Store ID not found for user'
+      });
+    }
+
+    const productsQuery = `
+      SELECT p.*, s.store_name
+      FROM products p
+      JOIN stores s ON p.store_id = s.id
+      WHERE p.store_id = $1
+      ORDER BY p.created_at DESC
+    `;
+
+    const result = await pool.query(productsQuery, [storeId]);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error fetching store products:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch products',
+      error: error.message
+    });
+  }
+});
+
+// POST /api/store/products - Add new product
+router.post('/products', authenticateStoreOwner, async (req, res) => {
+  try {
+    const storeId = req.user.storeId;
+    const { name, description, price, category, image_url, stock_quantity } = req.body;
+
+    if (!name || !description || !price || !category || !image_url || stock_quantity === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: 'All product fields are required'
+      });
+    }
+
+    const insertProductQuery = `
+      INSERT INTO products (store_id, name, description, price, category, image_url, stock_quantity)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *
+    `;
+
+    const result = await pool.query(insertProductQuery, [
+      storeId, name, description, price, category, image_url, stock_quantity
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Product added successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error adding product:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add product'
+    });
+  }
+});
+
+// PUT /api/store/products/:id - Update product
+router.put('/products/:id', authenticateStoreOwner, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.user.storeId;
+    const { name, description, price, category, image_url, stock_quantity } = req.body;
+
+    const updateProductQuery = `
+      UPDATE products 
+      SET name = $1, description = $2, price = $3, category = $4, 
+          image_url = $5, stock_quantity = $6, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $7 AND store_id = $8
+      RETURNING *
+    `;
+
+    const result = await pool.query(updateProductQuery, [
+      name, description, price, category, image_url, stock_quantity, id, storeId
+    ]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found or not authorized'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Product updated successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error updating product:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update product'
+    });
+  }
+});
+
+// DELETE /api/store/products/:id - Delete product
+router.delete('/products/:id', authenticateStoreOwner, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const storeId = req.user.storeId;
+
+    const deleteProductQuery = `
+      DELETE FROM products 
+      WHERE id = $1 AND store_id = $2
+      RETURNING id, name
+    `;
+
+    const result = await pool.query(deleteProductQuery, [id, storeId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Product not found or not authorized'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Product deleted successfully',
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error deleting product:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete product'
+    });
+  }
+});
+
+// GET /api/store/sales - Get store sales
+router.get('/sales', authenticateStoreOwner, async (req, res) => {
+  try {
+    const storeId = req.user.storeId;
+
+    if (!storeId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Store ID not found for user'
+      });
+    }
+
+    const salesQuery = `
+      SELECT 
+        oi.id,
+        p.name as product_name,
+        oi.quantity,
+        COALESCE(oi.price_per_item, oi.price) as price_per_item,
+        COALESCE(oi.price_per_item * oi.quantity, oi.price * oi.quantity, oi.price) as total_price,
+        u.full_name as customer_name,
+        o.created_at as sale_date,
+        o.status
+      FROM order_items oi
+      JOIN products p ON oi.product_id = p.id
+      JOIN orders o ON oi.order_id = o.id
+      JOIN users u ON o.user_id = u.id
+      WHERE p.store_id = $1
+      ORDER BY o.created_at DESC
+    `;
+
+    const result = await pool.query(salesQuery, [storeId]);
+
+    res.json({
+      success: true,
+      data: result.rows
+    });
+
+  } catch (error) {
+    console.error('Error fetching store sales:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch sales data',
+      error: error.message
     });
   }
 });
@@ -192,8 +451,7 @@ router.get('/:id/products', async (req, res) => {
 });
 
 
-// JWT secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
+// JWT constants
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 // Validation helper functions
@@ -470,240 +728,5 @@ router.post('/login', async (req, res) => {
     });
   }
 });
-
-// GET /api/store/products - Get store owner's products
-router.get('/products', authenticateStoreOwner, async (req, res) => {
-  try {
-    const storeId = req.user.storeId;
-
-    const productsQuery = `
-      SELECT p.*, s.store_name
-      FROM products p
-      JOIN stores s ON p.store_id = s.id
-      WHERE p.store_id = $1
-      ORDER BY p.created_at DESC
-    `;
-
-    const result = await pool.query(productsQuery, [storeId]);
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
-
-  } catch (error) {
-    console.error('Error fetching store products:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch products'
-    });
-  }
-});
-
-// POST /api/store/products - Add new product
-router.post('/products', authenticateStoreOwner, async (req, res) => {
-  try {
-    const storeId = req.user.storeId;
-    const { name, description, price, category, image_url, stock_quantity } = req.body;
-
-    if (!name || !description || !price || !category || !image_url || stock_quantity === undefined) {
-      return res.status(400).json({
-        success: false,
-        message: 'All product fields are required'
-      });
-    }
-
-    const insertProductQuery = `
-      INSERT INTO products (store_id, name, description, price, category, image_url, stock_quantity)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *
-    `;
-
-    const result = await pool.query(insertProductQuery, [
-      storeId, name, description, price, category, image_url, stock_quantity
-    ]);
-
-    res.status(201).json({
-      success: true,
-      message: 'Product added successfully',
-      data: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error('Error adding product:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to add product'
-    });
-  }
-});
-
-// PUT /api/store/products/:id - Update product
-router.put('/products/:id', authenticateStoreOwner, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const storeId = req.user.storeId;
-    const { name, description, price, category, image_url, stock_quantity } = req.body;
-
-    const updateProductQuery = `
-      UPDATE products 
-      SET name = $1, description = $2, price = $3, category = $4, 
-          image_url = $5, stock_quantity = $6, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7 AND store_id = $8
-      RETURNING *
-    `;
-
-    const result = await pool.query(updateProductQuery, [
-      name, description, price, category, image_url, stock_quantity, id, storeId
-    ]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found or not authorized'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Product updated successfully',
-      data: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error('Error updating product:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update product'
-    });
-  }
-});
-
-// DELETE /api/store/products/:id - Delete product
-router.delete('/products/:id', authenticateStoreOwner, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const storeId = req.user.storeId;
-
-    const deleteProductQuery = `
-      DELETE FROM products 
-      WHERE id = $1 AND store_id = $2
-      RETURNING id, name
-    `;
-
-    const result = await pool.query(deleteProductQuery, [id, storeId]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found or not authorized'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Product deleted successfully',
-      data: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error('Error deleting product:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete product'
-    });
-  }
-});
-
-// GET /api/store/sales - Get store sales
-router.get('/sales', authenticateStoreOwner, async (req, res) => {
-  try {
-    const storeId = req.user.storeId;
-
-    const salesQuery = `
-      SELECT 
-        oi.id,
-        p.name as product_name,
-        oi.quantity,
-        oi.price_per_item,
-        (oi.quantity * oi.price_per_item) as total_price,
-        u.full_name as customer_name,
-        o.created_at as sale_date,
-        o.status
-      FROM order_items oi
-      JOIN products p ON oi.product_id = p.id
-      JOIN orders o ON oi.order_id = o.id
-      JOIN users u ON o.user_id = u.id
-      WHERE p.store_id = $1
-      ORDER BY o.created_at DESC
-    `;
-
-    const result = await pool.query(salesQuery, [storeId]);
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
-
-  } catch (error) {
-    console.error('Error fetching store sales:', error.message);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch sales data'
-    });
-  }
-});
-
-// Middleware to authenticate store owners
-function authenticateStoreOwner(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Store owner access token required'
-    });
-  }
-
-  jwt.verify(token, JWT_SECRET, async (err, user) => {
-    if (err) {
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid or expired token'
-      });
-    }
-
-    // Check if user is store owner
-    if (user.userType !== 'store_owner') {
-      return res.status(403).json({
-        success: false,
-        message: 'Store owner access required'
-      });
-    }
-
-    // Get store ID for this store owner
-    try {
-      const storeQuery = 'SELECT id FROM stores WHERE owner_id = $1';
-      const result = await pool.query(storeQuery, [user.userId]);
-      
-      if (result.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'No store found for this user'
-        });
-      }
-
-      req.user = { ...user, storeId: result.rows[0].id };
-      next();
-    } catch (error) {
-      console.error('Error verifying store owner:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Authentication error'
-      });
-    }
-  });
-}
 
 module.exports = router;
