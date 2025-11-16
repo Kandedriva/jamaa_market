@@ -11,6 +11,9 @@ interface Product {
   category: string;
   image_url: string;
   stock_quantity: number;
+  store_name?: string;
+  store_description?: string;
+  store_address?: string;
 }
 
 interface ProductCardProps {
@@ -41,6 +44,14 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       setTimeout(() => {
         setIsAdding(false);
       }, 500);
+    }
+  };
+
+  const handleVisitStore = () => {
+    if (product.store_id) {
+      // Navigate to the specific store page
+      window.history.pushState(null, '', `/store/${product.store_id}`);
+      window.location.reload();
     }
   };
 
@@ -108,6 +119,28 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <span className="text-sm text-green-600 font-medium">
                 ✓ {cartQuantity} in cart
               </span>
+            </div>
+          )}
+
+          {/* Store Information and Visit Store Button */}
+          {product.store_id && product.store_name && (
+            <div className="mb-3">
+              <div className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  <span className="text-xs text-gray-600 font-medium truncate">
+                    {product.store_name}
+                  </span>
+                </div>
+                <button
+                  onClick={handleVisitStore}
+                  className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 transition-colors font-medium"
+                >
+                  Visit Store
+                </button>
+              </div>
             </div>
           )}
           

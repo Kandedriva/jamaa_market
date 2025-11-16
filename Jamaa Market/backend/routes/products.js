@@ -2,11 +2,20 @@ const express = require('express');
 const { pool } = require('../config/database');
 const router = express.Router();
 
-// GET all products
+// GET all products with store information
 router.get('/', async (req, res) => {
   try {
     console.log('Attempting to fetch products...');
-    const result = await pool.query('SELECT * FROM products ORDER BY created_at DESC');
+    const result = await pool.query(`
+      SELECT 
+        p.*,
+        s.store_name,
+        s.store_description,
+        s.store_address
+      FROM products p
+      LEFT JOIN stores s ON p.store_id = s.id AND s.status = 'approved'
+      ORDER BY p.created_at DESC
+    `);
     console.log(`Found ${result.rows.length} products`);
     res.json({
       success: true,

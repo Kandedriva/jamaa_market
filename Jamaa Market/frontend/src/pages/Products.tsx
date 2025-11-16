@@ -8,12 +8,16 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 interface Product {
   id: number;
+  store_id?: number;
   name: string;
   description: string;
   price: number;
   category: string;
   image_url: string;
   stock_quantity: number;
+  store_name?: string;
+  store_description?: string;
+  store_address?: string;
 }
 
 interface User {
