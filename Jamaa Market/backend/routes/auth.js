@@ -1,11 +1,12 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { authenticateUser, createUser, authenticateToken } = require('../utils/auth');
 const { pool } = require('../config/database');
 
 const router = express.Router();
 
-// JWT secret from environment variables
+// JWT configuration
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
@@ -20,7 +21,7 @@ const validatePassword = (password) => {
   return password && password.length >= 6;
 };
 
-// POST /api/auth/register - Register new user
+// POST /api/auth/register - Register new customer
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password, fullName, phone, address } = req.body;
@@ -47,52 +48,43 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUserQuery = 'SELECT id FROM users WHERE email = $1 OR username = $2';
-    const existingUser = await pool.query(existingUserQuery, [email, username]);
+    // Check if user already exists in any table
+    const existingUserChecks = await Promise.all([
+      pool.query('SELECT id FROM customers WHERE email = $1 OR username = $2', [email, username]),
+      pool.query('SELECT id FROM admins WHERE email = $1 OR username = $2', [email, username]),
+      pool.query('SELECT id FROM store_owners WHERE email = $1 OR username = $2', [email, username])
+    ]);
 
-    if (existingUser.rows.length > 0) {
+    const existingUser = existingUserChecks.some(result => result.rows.length > 0);
+
+    if (existingUser) {
       return res.status(409).json({
         success: false,
         message: 'User with this email or username already exists'
       });
     }
 
-    // Hash password
-    const saltRounds = 10;
-    const passwordHash = await bcrypt.hash(password, saltRounds);
-
-    // Insert new user
-    const insertUserQuery = `
-      INSERT INTO users (username, email, password_hash, full_name, phone, address)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, username, email, full_name, phone, address, user_type, status, created_at
-    `;
-
-    const result = await pool.query(insertUserQuery, [
+    // Create new customer
+    const userData = {
       username,
       email,
-      passwordHash,
-      fullName,
-      phone || null,
-      address || null
-    ]);
+      full_name: fullName,
+      phone: phone || null,
+      address: address || null
+    };
 
-    const user = result.rows[0];
+    const user = await createUser({ ...userData, password }, 'customer');
 
     // Generate JWT token
     const token = jwt.sign(
       { 
         userId: user.id, 
         email: user.email, 
-        userType: user.user_type 
+        userType: 'customer' 
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
-
-    // Remove sensitive data before sending response
-    delete user.password_hash;
 
     res.status(201).json({
       success: true,
@@ -112,7 +104,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login - User login
+// POST /api/auth/login - User login (any type)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -132,70 +124,20 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user by email
-    const userQuery = `
-      SELECT id, username, email, password_hash, full_name, phone, address, 
-             user_type, status, email_verified, created_at
-      FROM users 
-      WHERE email = $1
-    `;
-    
-    const result = await pool.query(userQuery, [email]);
+    // Use the authenticateUser utility to handle multi-table authentication
+    const authResult = await authenticateUser(email, password);
 
-    if (result.rows.length === 0) {
+    if (!authResult.success) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid email or password'
+        message: authResult.message
       });
     }
-
-    const user = result.rows[0];
-
-    // Check if user account is active
-    if (user.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account is not active. Please contact support.'
-      });
-    }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Update last login timestamp
-    await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [user.id]
-    );
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        userType: user.user_type 
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
-    // Remove sensitive data before sending response
-    delete user.password_hash;
 
     res.json({
       success: true,
-      message: 'Login successful',
-      data: {
-        user,
-        token
-      }
+      message: authResult.message,
+      data: authResult.data
     });
 
   } catch (error) {
@@ -216,30 +158,13 @@ router.post('/logout', (req, res) => {
 });
 
 // GET /api/auth/profile - Get user profile (requires authentication)
-router.get('/profile', authenticateToken, async (req, res) => {
+router.get('/profile', authenticateToken(), async (req, res) => {
   try {
-    const userId = req.user.userId;
-
-    const userQuery = `
-      SELECT id, username, email, full_name, phone, address, 
-             user_type, status, email_verified, created_at, last_login
-      FROM users 
-      WHERE id = $1
-    `;
-    
-    const result = await pool.query(userQuery, [userId]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
+    // The authenticateToken middleware already fetches fresh user data
     res.json({
       success: true,
       data: {
-        user: result.rows[0]
+        user: req.user
       }
     });
 
@@ -253,9 +178,10 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 // PUT /api/auth/profile - Update user profile
-router.put('/profile', authenticateToken, async (req, res) => {
+router.put('/profile', authenticateToken(), async (req, res) => {
   try {
     const userId = req.user.userId;
+    const userType = req.user.userType;
     const { fullName, phone, address } = req.body;
 
     if (!fullName) {
@@ -265,11 +191,25 @@ router.put('/profile', authenticateToken, async (req, res) => {
       });
     }
 
+    const tableMap = {
+      'admin': 'admins',
+      'customer': 'customers',
+      'store_owner': 'store_owners'
+    };
+
+    const tableName = tableMap[userType];
+    if (!tableName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user type'
+      });
+    }
+
     const updateQuery = `
-      UPDATE users 
+      UPDATE ${tableName} 
       SET full_name = $1, phone = $2, address = $3, updated_at = CURRENT_TIMESTAMP
       WHERE id = $4
-      RETURNING id, username, email, full_name, phone, address, user_type, status, updated_at
+      RETURNING *
     `;
 
     const result = await pool.query(updateQuery, [
@@ -286,11 +226,15 @@ router.put('/profile', authenticateToken, async (req, res) => {
       });
     }
 
+    const user = result.rows[0];
+    delete user.password_hash;
+    user.user_type = userType;
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
-        user: result.rows[0]
+        user
       }
     });
 
@@ -323,69 +267,33 @@ router.post('/admin/login', async (req, res) => {
       });
     }
 
-    // Find user by email and check if admin
-    const userQuery = `
-      SELECT id, username, email, password_hash, full_name, phone, address, 
-             user_type, status, email_verified, created_at
-      FROM users 
-      WHERE email = $1 AND user_type = 'admin'
-    `;
-    
-    const result = await pool.query(userQuery, [email]);
+    // Use the authenticateUser utility specifically for admins
+    const authResult = await authenticateUser(email, password, 'admin');
 
-    if (result.rows.length === 0) {
+    if (!authResult.success) {
       return res.status(401).json({
         success: false,
         message: 'Invalid admin credentials'
       });
     }
-
-    const user = result.rows[0];
-
-    // Check if admin account is active
-    if (user.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin account is not active. Please contact support.'
-      });
-    }
-
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid admin credentials'
-      });
-    }
-
-    // Update last login timestamp
-    await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-      [user.id]
-    );
 
     // Generate JWT token with admin flag
     const token = jwt.sign(
       { 
-        userId: user.id, 
-        email: user.email, 
-        userType: user.user_type,
+        userId: authResult.data.user.id, 
+        email: authResult.data.user.email, 
+        userType: 'admin',
         isAdmin: true
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    // Remove sensitive data before sending response
-    delete user.password_hash;
-
     res.json({
       success: true,
       message: 'Admin login successful',
       data: {
-        user,
+        user: authResult.data.user,
         token
       }
     });
@@ -399,65 +307,139 @@ router.post('/admin/login', async (req, res) => {
   }
 });
 
-// Middleware to authenticate JWT token
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+// POST /api/auth/store-owner/register - Store owner registration
+router.post('/store-owner/register', async (req, res) => {
+  try {
+    const { username, email, password, fullName, phone, address, businessName, taxId, businessAddress } = req.body;
 
-  if (!token) {
-    return res.status(401).json({
+    // Validation
+    if (!username || !email || !password || !fullName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username, email, password, and full name are required'
+      });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address'
+      });
+    }
+
+    if (!validatePassword(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Check if user already exists in any table
+    const existingUserChecks = await Promise.all([
+      pool.query('SELECT id FROM customers WHERE email = $1 OR username = $2', [email, username]),
+      pool.query('SELECT id FROM admins WHERE email = $1 OR username = $2', [email, username]),
+      pool.query('SELECT id FROM store_owners WHERE email = $1 OR username = $2', [email, username])
+    ]);
+
+    const existingUser = existingUserChecks.some(result => result.rows.length > 0);
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email or username already exists'
+      });
+    }
+
+    // Create new store owner
+    const userData = {
+      username,
+      email,
+      full_name: fullName,
+      phone: phone || null,
+      address: address || null,
+      business_name: businessName || null,
+      tax_id: taxId || null,
+      business_address: businessAddress || null
+    };
+
+    const user = await createUser({ ...userData, password }, 'store_owner');
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id, 
+        email: user.email, 
+        userType: 'store_owner' 
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Store owner registered successfully',
+      data: {
+        user,
+        token
+      }
+    });
+
+  } catch (error) {
+    console.error('Store owner registration error:', error.message);
+    res.status(500).json({
       success: false,
-      message: 'Access token required'
+      message: 'Internal server error during registration'
     });
   }
+});
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({
+// POST /api/auth/store-owner/login - Store owner login
+router.post('/store-owner/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid or expired token'
+        message: 'Email and password are required'
       });
     }
-    req.user = user;
-    next();
-  });
-}
 
-// Middleware to authenticate admin users only
-function authenticateAdmin(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    if (!validateEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid email address'
+      });
+    }
 
-  if (!token) {
-    return res.status(401).json({
+    // Use the authenticateUser utility specifically for store owners
+    const authResult = await authenticateUser(email, password, 'store_owner');
+
+    if (!authResult.success) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid store owner credentials'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Store owner login successful',
+      data: authResult.data
+    });
+
+  } catch (error) {
+    console.error('Store owner login error:', error.message);
+    res.status(500).json({
       success: false,
-      message: 'Admin access token required'
+      message: 'Internal server error during store owner login'
     });
   }
+});
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid or expired token'
-      });
-    }
-
-    // Check if user is admin
-    if (user.userType !== 'admin' || !user.isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Admin access required'
-      });
-    }
-
-    req.user = user;
-    next();
-  });
-}
-
-// Export middleware functions for use in other routes
+// Export middleware functions for use in other routes using the utils
 router.authenticateToken = authenticateToken;
-router.authenticateAdmin = authenticateAdmin;
+router.authenticateAdmin = authenticateToken('admin');
 
 module.exports = router;

@@ -4,7 +4,6 @@ require('dotenv').config();
 
 const { connectDB } = require('./config/database');
 const createTables = require('./scripts/createTables');
-const createUsersTable = require('./scripts/createUsersTable');
 const createCartTable = require('./scripts/createCartTable');
 const createStoresTable = require('./scripts/createStoresTable');
 const createOrdersTable = require('./scripts/createOrdersTable');
@@ -59,7 +58,7 @@ const startServer = async () => {
   try {
     await connectDB();
     await createTables();
-    await createUsersTable();
+    // Skip createUsersTable - we now use separate tables (admins, customers, store_owners)
     await createCartTable();
     await createStoresTable();
     await createOrdersTable();

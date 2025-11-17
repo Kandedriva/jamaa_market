@@ -288,7 +288,7 @@ router.get('/stores', authenticateAdmin, async (req, res) => {
         u.email as owner_email,
         u.phone as owner_phone
       FROM stores s
-      JOIN users u ON s.owner_id = u.id
+      JOIN store_owners u ON s.owner_id = u.id
       ORDER BY s.created_at DESC
     `);
     
@@ -367,7 +367,7 @@ router.get('/stores/:id', authenticateAdmin, async (req, res) => {
         u.phone as owner_phone,
         u.address as owner_address
       FROM stores s
-      JOIN users u ON s.owner_id = u.id
+      JOIN store_owners u ON s.owner_id = u.id
       WHERE s.id = $1
     `, [id]);
 

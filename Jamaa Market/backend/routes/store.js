@@ -2,45 +2,23 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const { authenticateToken } = require('../utils/auth');
 
 const router = express.Router();
 
 // JWT secret from environment variables
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
 
-// Middleware to authenticate store owners
+// Middleware to authenticate store owners and get store info
 function authenticateStoreOwner(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({
-      success: false,
-      message: 'Store owner access token required'
-    });
-  }
-
-  jwt.verify(token, JWT_SECRET, async (err, user) => {
-    if (err) {
-      console.error('JWT verification error:', err);
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid or expired token'
-      });
-    }
-
-    // Check if user is store owner
-    if (user.userType !== 'store_owner') {
-      return res.status(403).json({
-        success: false,
-        message: 'Store owner access required'
-      });
-    }
-
-    // Get store ID for this store owner
+  // First use the standard authentication
+  authenticateToken('store_owner')(req, res, async (err) => {
+    if (err) return;
+    
     try {
+      // Get store ID for this store owner
       const storeQuery = 'SELECT id FROM stores WHERE owner_id = $1';
-      const result = await pool.query(storeQuery, [user.userId]);
+      const result = await pool.query(storeQuery, [req.user.userId]);
       
       if (result.rows.length === 0) {
         return res.status(403).json({
@@ -49,7 +27,7 @@ function authenticateStoreOwner(req, res, next) {
         });
       }
 
-      req.user = { ...user, storeId: result.rows[0].id };
+      req.user.storeId = result.rows[0].id;
       next();
     } catch (error) {
       console.error('Error verifying store owner:', error);
@@ -74,11 +52,11 @@ router.get('/all', async (req, res) => {
         s.categories,
         s.status,
         s.created_at,
-        u.full_name as owner_name,
-        u.email as owner_email,
-        u.phone as owner_phone
+        so.full_name as owner_name,
+        so.email as owner_email,
+        so.phone as owner_phone
       FROM stores s
-      JOIN users u ON s.owner_id = u.id
+      JOIN store_owners so ON s.owner_id = so.id
       WHERE s.status = 'approved'
       ORDER BY s.created_at DESC
     `;
@@ -287,7 +265,7 @@ router.get('/sales', authenticateStoreOwner, async (req, res) => {
       FROM order_items oi
       JOIN products p ON oi.product_id = p.id
       JOIN orders o ON oi.order_id = o.id
-      JOIN users u ON o.user_id = u.id
+      JOIN customers u ON o.user_id = u.id
       WHERE p.store_id = $1
       ORDER BY o.created_at DESC
     `;
@@ -331,7 +309,7 @@ router.get('/:id', async (req, res) => {
         u.email as owner_email,
         u.phone as owner_phone
       FROM stores s
-      JOIN users u ON s.owner_id = u.id
+      JOIN store_owners u ON s.owner_id = u.id
       WHERE s.id = $1 AND s.status = 'approved'
     `;
 
@@ -502,11 +480,16 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Check if user already exists
-    const existingUserQuery = 'SELECT id FROM users WHERE email = $1';
-    const existingUser = await pool.query(existingUserQuery, [email]);
+    // Check if user already exists in any table
+    const existingUserChecks = await Promise.all([
+      pool.query('SELECT id FROM customers WHERE email = $1', [email]),
+      pool.query('SELECT id FROM admins WHERE email = $1', [email]),
+      pool.query('SELECT id FROM store_owners WHERE email = $1', [email])
+    ]);
 
-    if (existingUser.rows.length > 0) {
+    const existingUser = existingUserChecks.some(result => result.rows.length > 0);
+
+    if (existingUser) {
       return res.status(409).json({
         success: false,
         message: 'User with this email already exists'
@@ -526,9 +509,9 @@ router.post('/register', async (req, res) => {
     try {
       // Insert new store owner user
       const insertUserQuery = `
-        INSERT INTO users (username, email, password_hash, full_name, phone, user_type)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, username, email, full_name, phone, user_type, status, created_at
+        INSERT INTO store_owners (username, email, password_hash, full_name, phone)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, username, email, full_name, phone, status, created_at
       `;
 
       const userResult = await pool.query(insertUserQuery, [
@@ -536,11 +519,11 @@ router.post('/register', async (req, res) => {
         email,
         passwordHash,
         fullName,
-        phone || null,
-        'store_owner'
+        phone || null
       ]);
 
       const user = userResult.rows[0];
+      user.user_type = 'store_owner';
 
       // Insert store information
       const insertStoreQuery = `
@@ -630,14 +613,14 @@ router.post('/login', async (req, res) => {
 
     // Find store owner by email
     const userQuery = `
-      SELECT u.id, u.username, u.email, u.password_hash, u.full_name, 
-             u.phone, u.user_type, u.status, u.created_at,
+      SELECT so.id, so.username, so.email, so.password_hash, so.full_name, 
+             so.phone, 'store_owner' as user_type, so.status, so.created_at,
              s.id as store_id, s.store_name, s.store_description, 
              s.store_address, s.business_type, s.business_license, 
              s.categories, s.status as store_status, s.created_at as store_created_at
-      FROM users u
-      LEFT JOIN stores s ON u.id = s.owner_id
-      WHERE u.email = $1 AND u.user_type = 'store_owner'
+      FROM store_owners so
+      LEFT JOIN stores s ON so.id = s.owner_id
+      WHERE so.email = $1
     `;
     
     const result = await pool.query(userQuery, [email]);
@@ -671,7 +654,7 @@ router.post('/login', async (req, res) => {
 
     // Update last login timestamp
     await pool.query(
-      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE store_owners SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [userData.id]
     );
 

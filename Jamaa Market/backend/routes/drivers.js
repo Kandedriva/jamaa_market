@@ -439,7 +439,7 @@ router.get('/orders', authenticateDriver, async (req, res) => {
              u.full_name as customer_name, u.phone as customer_phone,
              COUNT(oi.id) as item_count
       FROM orders o
-      JOIN users u ON o.user_id = u.id
+      JOIN customers u ON o.user_id = u.id
       LEFT JOIN order_items oi ON o.id = oi.order_id
       WHERE o.driver_id = $1
     `;
@@ -661,7 +661,7 @@ router.get('/stats', authenticateDriver, async (req, res) => {
     const recentDeliveries = await pool.query(`
       SELECT o.id, o.order_number, o.total, o.delivered_at, u.full_name as customer_name
       FROM orders o
-      JOIN users u ON o.user_id = u.id
+      JOIN customers u ON o.user_id = u.id
       WHERE o.driver_id = $1 AND o.status = 'delivered'
       ORDER BY o.delivered_at DESC
       LIMIT 10
