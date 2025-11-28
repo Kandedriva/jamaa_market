@@ -71,7 +71,19 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
         setError(response.data.message || 'Failed to fetch statistics');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch statistics');
+      const errorMessage = err.response?.data?.message || 'Failed to fetch statistics';
+      setError(errorMessage);
+      
+      // If it's a token-related error, clear stored auth data
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        console.log('Driver authentication error, clearing stored data:', errorMessage);
+        localStorage.removeItem('jamaa-driver-token');
+        localStorage.removeItem('jamaa-driver-data');
+        // Reload the page to trigger re-authentication
+        window.location.reload();
+        return;
+      }
+      
       // Set mock data for demonstration
       setStats({
         totalDeliveries: driver.totalDeliveries,

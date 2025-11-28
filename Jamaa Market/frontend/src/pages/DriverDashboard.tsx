@@ -36,22 +36,50 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ onNavigateHome }) => 
 
   // Check for existing authentication on component mount
   useEffect(() => {
-    const token = localStorage.getItem('jamaa-driver-token');
-    const driverData = localStorage.getItem('jamaa-driver-data');
-    
-    if (token && driverData) {
-      try {
-        const parsedDriver = JSON.parse(driverData);
-        setDriver(parsedDriver);
-        setIsAuthenticated(true);
-      } catch (error) {
-        // Invalid stored data, clear it
-        localStorage.removeItem('jamaa-driver-token');
-        localStorage.removeItem('jamaa-driver-data');
+    const validateStoredAuth = async () => {
+      const token = localStorage.getItem('jamaa-driver-token');
+      const driverData = localStorage.getItem('jamaa-driver-data');
+      
+      if (token && driverData) {
+        try {
+          const parsedDriver = JSON.parse(driverData);
+          
+          // Validate token by making a test request to driver profile
+          try {
+            const response = await fetch('/api/drivers/profile', {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            
+            if (response.ok) {
+              // Token is valid
+              setDriver(parsedDriver);
+              setIsAuthenticated(true);
+            } else {
+              // Token is invalid, clear stored data
+              console.log('Driver token validation failed:', response.status);
+              localStorage.removeItem('jamaa-driver-token');
+              localStorage.removeItem('jamaa-driver-data');
+            }
+          } catch (networkError) {
+            // Network error, assume token might still be valid for now but log the issue
+            console.log('Network error validating driver token, assuming valid:', networkError);
+            setDriver(parsedDriver);
+            setIsAuthenticated(true);
+          }
+        } catch (parseError) {
+          // Invalid stored data, clear it
+          console.log('Invalid stored driver data:', parseError);
+          localStorage.removeItem('jamaa-driver-token');
+          localStorage.removeItem('jamaa-driver-data');
+        }
       }
-    }
-    
-    setLoading(false);
+      
+      setLoading(false);
+    };
+
+    validateStoredAuth();
   }, []);
 
   const handleLogin = (driverData: Driver, token: string) => {

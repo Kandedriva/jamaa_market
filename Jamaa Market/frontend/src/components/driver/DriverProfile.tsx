@@ -78,7 +78,17 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
         setError(response.data.message || 'Failed to update profile');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update profile');
+      const errorMessage = err.response?.data?.message || 'Failed to update profile';
+      setError(errorMessage);
+      
+      // If it's a token-related error, clear stored auth data
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        console.log('Driver authentication error, clearing stored data:', errorMessage);
+        localStorage.removeItem('jamaa-driver-token');
+        localStorage.removeItem('jamaa-driver-data');
+        // Reload the page to trigger re-authentication
+        window.location.reload();
+      }
     } finally {
       setLoading(false);
     }
@@ -108,7 +118,17 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
         setError(response.data.message || 'Failed to update status');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update status');
+      const errorMessage = err.response?.data?.message || 'Failed to update status';
+      setError(errorMessage);
+      
+      // If it's a token-related error, clear stored auth data
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        console.log('Driver authentication error, clearing stored data:', errorMessage);
+        localStorage.removeItem('jamaa-driver-token');
+        localStorage.removeItem('jamaa-driver-data');
+        // Reload the page to trigger re-authentication
+        window.location.reload();
+      }
     } finally {
       setLoading(false);
     }
@@ -149,7 +169,17 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
             setError(response.data.message || 'Failed to update location');
           }
         } catch (err: any) {
-          setError(err.response?.data?.message || 'Failed to update location');
+          const errorMessage = err.response?.data?.message || 'Failed to update location';
+          setError(errorMessage);
+          
+          // If it's a token-related error, clear stored auth data
+          if (err.response?.status === 401 || err.response?.status === 403) {
+            console.log('Driver authentication error, clearing stored data:', errorMessage);
+            localStorage.removeItem('jamaa-driver-token');
+            localStorage.removeItem('jamaa-driver-data');
+            // Reload the page to trigger re-authentication
+            window.location.reload();
+          }
         } finally {
           setLoading(false);
         }

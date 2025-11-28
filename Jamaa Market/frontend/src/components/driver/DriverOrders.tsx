@@ -72,7 +72,17 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
         setError(response.data.message || 'Failed to fetch orders');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to fetch orders');
+      const errorMessage = err.response?.data?.message || 'Failed to fetch orders';
+      setError(errorMessage);
+      
+      // If it's a token-related error, clear stored auth data
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        console.log('Driver authentication error, clearing stored data:', errorMessage);
+        localStorage.removeItem('jamaa-driver-token');
+        localStorage.removeItem('jamaa-driver-data');
+        // Reload the page to trigger re-authentication
+        window.location.reload();
+      }
     } finally {
       setLoading(false);
     }
@@ -109,7 +119,17 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
         setError(response.data.message || 'Failed to update order status');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to update order status');
+      const errorMessage = err.response?.data?.message || 'Failed to update order status';
+      setError(errorMessage);
+      
+      // If it's a token-related error, clear stored auth data
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        console.log('Driver authentication error, clearing stored data:', errorMessage);
+        localStorage.removeItem('jamaa-driver-token');
+        localStorage.removeItem('jamaa-driver-data');
+        // Reload the page to trigger re-authentication
+        window.location.reload();
+      }
     } finally {
       setUpdating(null);
     }
