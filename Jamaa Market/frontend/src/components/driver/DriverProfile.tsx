@@ -57,7 +57,7 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
     setSuccess('');
 
     try {
-      const token = localStorage.getItem('jamaa-driver-token');
+      const token = localStorage.getItem('afrozy-driver-token');
       const response = await axios.put(
         `${API_BASE_URL}/drivers/profile`,
         formData,
@@ -71,7 +71,7 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
       if (response.data.success) {
         const updatedDriver = { ...driver, ...formData };
         onUpdate(updatedDriver);
-        localStorage.setItem('jamaa-driver-data', JSON.stringify(updatedDriver));
+        localStorage.setItem('afrozy-driver-data', JSON.stringify(updatedDriver));
         setSuccess('Profile updated successfully');
         setEditing(false);
       } else {
@@ -84,8 +84,8 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
       // If it's a token-related error, clear stored auth data
       if (err.response?.status === 401 || err.response?.status === 403) {
         console.log('Driver authentication error, clearing stored data:', errorMessage);
-        localStorage.removeItem('jamaa-driver-token');
-        localStorage.removeItem('jamaa-driver-data');
+        localStorage.removeItem('afrozy-driver-token');
+        localStorage.removeItem('afrozy-driver-data');
         // Reload the page to trigger re-authentication
         window.location.reload();
       }
@@ -97,7 +97,7 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
   const handleStatusUpdate = async (newStatus: string) => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jamaa-driver-token');
+      const token = localStorage.getItem('afrozy-driver-token');
       
       const response = await axios.put(
         `${API_BASE_URL}/drivers/status`,
@@ -112,7 +112,7 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
       if (response.data.success) {
         const updatedDriver = { ...driver, status: newStatus as any };
         onUpdate(updatedDriver);
-        localStorage.setItem('jamaa-driver-data', JSON.stringify(updatedDriver));
+        localStorage.setItem('afrozy-driver-data', JSON.stringify(updatedDriver));
         setSuccess('Status updated successfully');
       } else {
         setError(response.data.message || 'Failed to update status');
@@ -124,8 +124,8 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
       // If it's a token-related error, clear stored auth data
       if (err.response?.status === 401 || err.response?.status === 403) {
         console.log('Driver authentication error, clearing stored data:', errorMessage);
-        localStorage.removeItem('jamaa-driver-token');
-        localStorage.removeItem('jamaa-driver-data');
+        localStorage.removeItem('afrozy-driver-token');
+        localStorage.removeItem('afrozy-driver-data');
         // Reload the page to trigger re-authentication
         window.location.reload();
       }
@@ -139,7 +139,7 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
       navigator.geolocation.getCurrentPosition(async (position) => {
         try {
           setLoading(true);
-          const token = localStorage.getItem('jamaa-driver-token');
+          const token = localStorage.getItem('afrozy-driver-token');
           
           const response = await axios.put(
             `${API_BASE_URL}/drivers/location`,
@@ -163,7 +163,7 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
               }
             };
             onUpdate(updatedDriver);
-            localStorage.setItem('jamaa-driver-data', JSON.stringify(updatedDriver));
+            localStorage.setItem('afrozy-driver-data', JSON.stringify(updatedDriver));
             setSuccess('Location updated successfully');
           } else {
             setError(response.data.message || 'Failed to update location');
@@ -175,8 +175,8 @@ const DriverProfile: React.FC<DriverProfileProps> = ({ driver, onUpdate }) => {
           // If it's a token-related error, clear stored auth data
           if (err.response?.status === 401 || err.response?.status === 403) {
             console.log('Driver authentication error, clearing stored data:', errorMessage);
-            localStorage.removeItem('jamaa-driver-token');
-            localStorage.removeItem('jamaa-driver-data');
+            localStorage.removeItem('afrozy-driver-token');
+            localStorage.removeItem('afrozy-driver-data');
             // Reload the page to trigger re-authentication
             window.location.reload();
           }

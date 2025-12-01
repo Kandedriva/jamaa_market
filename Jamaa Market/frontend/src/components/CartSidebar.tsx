@@ -59,7 +59,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, user, storeI
         total_amount: cartTotal
       };
 
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       const response = await fetch('http://localhost:3001/api/orders', {
         method: 'POST',
         headers: {

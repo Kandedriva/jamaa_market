@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.json({ message: 'Jamaa Market API is running!' });
+  res.json({ message: 'Afrozy Market API is running!' });
 });
 
 app.get('/health', (req, res) => {

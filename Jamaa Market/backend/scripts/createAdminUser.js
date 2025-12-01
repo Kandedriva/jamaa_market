@@ -6,7 +6,7 @@ async function createAdminUser() {
   try {
     // Admin user details - get password from environment or use default for development
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@jamaamarket.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@afrozymarket.com';
     
     const adminData = {
       username: 'admin',

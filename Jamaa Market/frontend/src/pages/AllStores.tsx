@@ -142,7 +142,7 @@ const AllStores: React.FC<AllStoresProps> = ({ user, onLogout }) => {
               className="w-12 h-12 object-contain"
             />
             <div>
-              <h1 className="text-2xl font-bold">Jamaa Market</h1>
+              <h1 className="text-2xl font-bold">Afrozy Market</h1>
               <p className="text-blue-100">Browse All Stores</p>
             </div>
           </div>
@@ -162,7 +162,7 @@ const AllStores: React.FC<AllStoresProps> = ({ user, onLogout }) => {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-800 mb-4">All Stores ({filteredStores.length})</h2>
-          <p className="text-gray-600 mb-6">Discover amazing stores and their unique products on Jamaa Market</p>
+          <p className="text-gray-600 mb-6">Discover amazing stores and their unique products on Afrozy Market</p>
           
           {/* Category Filter */}
           <div className="flex flex-wrap gap-2 mb-6">

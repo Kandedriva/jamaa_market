@@ -5,12 +5,12 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Jamaa Market API',
+      title: 'Afrozy Market API',
       version: '1.0.0',
       description: 'A comprehensive marketplace API with authentication, products, stores, and order management',
       contact: {
-        name: 'Jamaa Market Team',
-        email: 'support@jamaamarket.com'
+        name: 'Afrozy Market Team',
+        email: 'support@afrozymarket.com'
       }
     },
     servers: [

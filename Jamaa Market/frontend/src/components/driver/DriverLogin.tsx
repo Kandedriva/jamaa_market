@@ -151,7 +151,7 @@ const DriverLogin: React.FC<DriverLoginProps> = ({ onLogin, onNavigateHome }) =>
         <div className="text-center">
           <img 
             src="/globe.png" 
-            alt="Jamaa Market" 
+            alt="Afrozy Market" 
             className="w-16 h-16 mx-auto"
           />
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
@@ -237,7 +237,7 @@ const DriverLogin: React.FC<DriverLoginProps> = ({ onLogin, onNavigateHome }) =>
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
               <p className="text-sm text-blue-600">
                 <strong>Demo Credentials:</strong><br />
-                Email: driver@jamaamarket.com<br />
+                Email: driver@afrozymarket.com<br />
                 Password: driver123
               </p>
             </div>

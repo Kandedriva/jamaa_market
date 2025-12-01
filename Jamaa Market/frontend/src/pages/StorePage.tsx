@@ -28,7 +28,7 @@ const StorePage: React.FC = () => {
               className="w-12 h-12 object-contain"
             />
             <div>
-              <h1 className="text-2xl font-bold">Jamaa Market</h1>
+              <h1 className="text-2xl font-bold">Afrozy Market</h1>
               <p className="text-blue-100">Store Owner Portal</p>
             </div>
           </div>
@@ -51,14 +51,14 @@ const StorePage: React.FC = () => {
           <div className="text-center mb-16">
             <h1 className="text-5xl font-bold mb-6">Start Your Online Store Today!</h1>
             <p className="text-xl text-purple-100 max-w-3xl mx-auto">
-              Join thousands of successful store owners on Jamaa Market. 
+              Join thousands of successful store owners on Afrozy Market. 
               Set up your store, manage inventory, and reach customers worldwide.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <h2 className="text-3xl font-bold mb-8">Why Choose Jamaa Market?</h2>
+              <h2 className="text-3xl font-bold mb-8">Why Choose Afrozy Market?</h2>
               <div className="space-y-6">
                 <div className="flex items-start space-x-4">
                   <div className="bg-green-500 rounded-full p-2 mt-1">
@@ -239,7 +239,7 @@ const StorePage: React.FC = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl font-bold mb-6">Ready to Start Your Journey?</h2>
           <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of successful entrepreneurs who have built thriving businesses on Jamaa Market.
+            Join thousands of successful entrepreneurs who have built thriving businesses on Afrozy Market.
           </p>
           <div className="space-x-4">
             <button 
@@ -255,7 +255,7 @@ const StorePage: React.FC = () => {
       {/* Footer */}
       <footer className="bg-gray-800 text-white py-8">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-400">© 2024 Jamaa Market. All rights reserved.</p>
+          <p className="text-gray-400">© 2024 Afrozy Market. All rights reserved.</p>
         </div>
       </footer>
     </div>

@@ -172,10 +172,10 @@ const initialState: CartState = {
 
 // Generate or get session ID for guest users
 const getSessionId = (): string => {
-  let sessionId = localStorage.getItem('jamaa_session_id');
+  let sessionId = localStorage.getItem('afrozy_session_id');
   if (!sessionId) {
     sessionId = 'guest_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('jamaa_session_id', sessionId);
+    localStorage.setItem('afrozy_session_id', sessionId);
   }
   return sessionId;
 };
@@ -196,7 +196,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       dispatch({ type: 'SET_ERROR', payload: null });
 
       // Get auth headers at call time using ref to avoid dependency issues
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       const currentUser = userRef.current;
       const headers = currentUser && token 
         ? { Authorization: `Bearer ${token}` }
@@ -223,7 +223,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error loading cart:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to load cart' });
       // Fallback to localStorage for offline functionality
-      const savedCart = localStorage.getItem('jamaa-market-cart');
+      const savedCart = localStorage.getItem('afrozy-market-cart');
       if (savedCart) {
         try {
           const cartItems = JSON.parse(savedCart);
@@ -240,7 +240,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Load user from localStorage on component mount
   useEffect(() => {
     const loadInitialState = async () => {
-      const savedUser = localStorage.getItem('jamaa-market-user');
+      const savedUser = localStorage.getItem('afrozy-market-user');
       if (savedUser) {
         try {
           const userData = JSON.parse(savedUser);
@@ -269,7 +269,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Helper function to get auth headers
   const getAuthHeaders = () => {
-    const token = localStorage.getItem('jamaa-market-token');
+    const token = localStorage.getItem('afrozy-market-token');
     const currentUser = userRef.current;
     if (currentUser && token) {
       return { Authorization: `Bearer ${token}` };
@@ -388,13 +388,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axios.post(`${API_BASE_URL}/cart/merge`, {
         sessionId
       }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('jamaa-market-token')}` }
+        headers: { Authorization: `Bearer ${localStorage.getItem('afrozy-market-token')}` }
       });
 
       if (response.data.success) {
         // Clear local session ID and localStorage cart after successful merge
-        localStorage.removeItem('jamaa_session_id');
-        localStorage.removeItem('jamaa-market-cart');
+        localStorage.removeItem('afrozy_session_id');
+        localStorage.removeItem('afrozy-market-cart');
         
         // Reload cart to get merged data
         await loadCart();
@@ -407,7 +407,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Save cart to localStorage as backup whenever it changes
   useEffect(() => {
-    localStorage.setItem('jamaa-market-cart', JSON.stringify(state.items));
+    localStorage.setItem('afrozy-market-cart', JSON.stringify(state.items));
   }, [state.items]);
 
   const toggleCart = () => {
@@ -436,15 +436,15 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Save user to localStorage
     if (newUser) {
-      localStorage.setItem('jamaa-market-user', JSON.stringify(newUser));
+      localStorage.setItem('afrozy-market-user', JSON.stringify(newUser));
       
       // If user just logged in and there was a guest cart, merge it
       if (!previousUser && state.items.length > 0) {
         setTimeout(() => mergeGuestCart(), 100); // Small delay to ensure user state is set
       }
     } else {
-      localStorage.removeItem('jamaa-market-user');
-      localStorage.removeItem('jamaa-market-token');
+      localStorage.removeItem('afrozy-market-user');
+      localStorage.removeItem('afrozy-market-token');
       // Clear cart when user logs out
       dispatch({ type: 'CLEAR_CART' });
     }

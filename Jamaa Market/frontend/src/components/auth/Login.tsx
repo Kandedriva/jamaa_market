@@ -62,7 +62,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister, onN
         <div className="flex justify-center">
           <img 
             src="/globe.png" 
-            alt="Jamaa Market" 
+            alt="Afrozy Market" 
             className="w-16 h-16"
           />
         </div>
@@ -198,7 +198,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister, onN
                 <div className="ml-3">
                   <h3 className="text-sm font-medium text-blue-800">Demo Credentials</h3>
                   <div className="mt-2 text-sm text-blue-700">
-                    <p><strong>Admin:</strong> admin@jamaamarket.com / admin123</p>
+                    <p><strong>Admin:</strong> admin@afrozymarket.com / admin123</p>
                     <p><strong>Or create your own account</strong></p>
                   </div>
                 </div>

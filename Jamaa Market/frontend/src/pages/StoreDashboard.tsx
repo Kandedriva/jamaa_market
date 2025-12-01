@@ -108,7 +108,7 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       const response = await axios.get(`${API_BASE_URL}/store/products`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -127,7 +127,7 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
   const fetchSales = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       const response = await axios.get(`${API_BASE_URL}/store/sales`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -149,7 +149,7 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
     setError(null);
 
     try {
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       const productData = {
         ...productForm,
         price: parseFloat(productForm.price),
@@ -207,7 +207,7 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
     if (!window.confirm('Are you sure you want to delete this product?')) return;
 
     try {
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       await axios.delete(`${API_BASE_URL}/store/products/${productId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });

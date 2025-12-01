@@ -34,7 +34,7 @@ const StoreManagement: React.FC = () => {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       const response = await axios.get(`${API_BASE_URL}/admin/stores`, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -57,7 +57,7 @@ const StoreManagement: React.FC = () => {
   const updateStoreStatus = async (storeId: number, newStatus: 'approved' | 'pending' | 'suspended') => {
     try {
       setUpdating(storeId);
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       
       const response = await axios.put(
         `${API_BASE_URL}/admin/stores/${storeId}/status`, 

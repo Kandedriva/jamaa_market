@@ -1,4 +1,4 @@
-# Jamaa Market
+# Afrozy Market
 
 A modern marketplace application built with React, Node.js, and PostgreSQL.
 
@@ -35,7 +35,7 @@ A modern marketplace application built with React, Node.js, and PostgreSQL.
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd "Jamaa Market"
+   cd "Afrozy Market"
    ```
 
 2. **Set up the backend**
@@ -59,7 +59,7 @@ Create a `.env` file in the backend directory:
 
 ```env
 PORT=5000
-DATABASE_URL=postgresql://username:password@localhost:5432/jamaa_market
+DATABASE_URL=postgresql://username:password@localhost:5432/afrozy_market
 JWT_SECRET=your_jwt_secret_key_here
 ```
 

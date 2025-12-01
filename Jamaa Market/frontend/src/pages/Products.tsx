@@ -106,7 +106,7 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
               className="w-12 h-12 object-contain"
             />
             <div>
-              <h1 className="text-2xl font-bold">Jamaa Market</h1>
+              <h1 className="text-2xl font-bold">Afrozy Market</h1>
               <p className="text-blue-100">Your Online Marketplace</p>
             </div>
           </div>
@@ -123,7 +123,7 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
               <span>Browse Stores</span>
             </a>
 
-            {/* Sell on Jamaa Link */}
+            {/* Sell on Afrozy Link */}
             <a
               href="/store/register"
               className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm"
@@ -131,7 +131,7 @@ const Products: React.FC<ProductsProps> = ({ user, onLogout }) => {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span>Sell on Jamaa</span>
+              <span>Sell on Afrozy</span>
             </a>
 
             {/* Driver Portal Link */}

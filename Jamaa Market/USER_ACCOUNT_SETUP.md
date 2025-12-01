@@ -2,7 +2,7 @@
 
 ## 🎯 Overview
 
-This document outlines the comprehensive user account management system added to Jamaa Market, including notifications, orders, and settings management.
+This document outlines the comprehensive user account management system added to Afrozy Market, including notifications, orders, and settings management.
 
 ## 🆕 Features Added
 

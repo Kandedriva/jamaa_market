@@ -50,7 +50,7 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jamaa-driver-token');
+      const token = localStorage.getItem('afrozy-driver-token');
       
       const params = new URLSearchParams();
       if (statusFilter !== 'all') {
@@ -78,8 +78,8 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
       // If it's a token-related error, clear stored auth data
       if (err.response?.status === 401 || err.response?.status === 403) {
         console.log('Driver authentication error, clearing stored data:', errorMessage);
-        localStorage.removeItem('jamaa-driver-token');
-        localStorage.removeItem('jamaa-driver-data');
+        localStorage.removeItem('afrozy-driver-token');
+        localStorage.removeItem('afrozy-driver-data');
         // Reload the page to trigger re-authentication
         window.location.reload();
       }
@@ -91,7 +91,7 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
   const updateOrderStatus = async (orderId: number, newStatus: string) => {
     try {
       setUpdating(orderId);
-      const token = localStorage.getItem('jamaa-driver-token');
+      const token = localStorage.getItem('afrozy-driver-token');
 
       const response = await axios.put(
         `${API_BASE_URL}/drivers/orders/${orderId}/status`,
@@ -125,8 +125,8 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
       // If it's a token-related error, clear stored auth data
       if (err.response?.status === 401 || err.response?.status === 403) {
         console.log('Driver authentication error, clearing stored data:', errorMessage);
-        localStorage.removeItem('jamaa-driver-token');
-        localStorage.removeItem('jamaa-driver-data');
+        localStorage.removeItem('afrozy-driver-token');
+        localStorage.removeItem('afrozy-driver-data');
         // Reload the page to trigger re-authentication
         window.location.reload();
       }

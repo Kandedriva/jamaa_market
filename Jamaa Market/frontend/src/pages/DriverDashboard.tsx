@@ -37,8 +37,8 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ onNavigateHome }) => 
   // Check for existing authentication on component mount
   useEffect(() => {
     const validateStoredAuth = async () => {
-      const token = localStorage.getItem('jamaa-driver-token');
-      const driverData = localStorage.getItem('jamaa-driver-data');
+      const token = localStorage.getItem('afrozy-driver-token');
+      const driverData = localStorage.getItem('afrozy-driver-data');
       
       if (token && driverData) {
         try {
@@ -59,8 +59,8 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ onNavigateHome }) => 
             } else {
               // Token is invalid, clear stored data
               console.log('Driver token validation failed:', response.status);
-              localStorage.removeItem('jamaa-driver-token');
-              localStorage.removeItem('jamaa-driver-data');
+              localStorage.removeItem('afrozy-driver-token');
+              localStorage.removeItem('afrozy-driver-data');
             }
           } catch (networkError) {
             // Network error, assume token might still be valid for now but log the issue
@@ -71,8 +71,8 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ onNavigateHome }) => 
         } catch (parseError) {
           // Invalid stored data, clear it
           console.log('Invalid stored driver data:', parseError);
-          localStorage.removeItem('jamaa-driver-token');
-          localStorage.removeItem('jamaa-driver-data');
+          localStorage.removeItem('afrozy-driver-token');
+          localStorage.removeItem('afrozy-driver-data');
         }
       }
       
@@ -87,14 +87,14 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ onNavigateHome }) => 
     setIsAuthenticated(true);
     
     // Store driver data and token
-    localStorage.setItem('jamaa-driver-token', token);
-    localStorage.setItem('jamaa-driver-data', JSON.stringify(driverData));
+    localStorage.setItem('afrozy-driver-token', token);
+    localStorage.setItem('afrozy-driver-data', JSON.stringify(driverData));
   };
 
   const handleLogout = async () => {
     try {
       // Call logout API if needed
-      const token = localStorage.getItem('jamaa-driver-token');
+      const token = localStorage.getItem('afrozy-driver-token');
       if (token) {
         await fetch('/api/drivers/logout', {
           method: 'POST',
@@ -107,8 +107,8 @@ const DriverDashboard: React.FC<DriverDashboardProps> = ({ onNavigateHome }) => 
       console.error('Logout error:', error);
     } finally {
       // Clear local storage and state
-      localStorage.removeItem('jamaa-driver-token');
-      localStorage.removeItem('jamaa-driver-data');
+      localStorage.removeItem('afrozy-driver-token');
+      localStorage.removeItem('afrozy-driver-data');
       setDriver(null);
       setIsAuthenticated(false);
     }

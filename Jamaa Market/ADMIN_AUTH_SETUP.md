@@ -2,7 +2,7 @@
 
 ## 🔐 Secure Admin Authentication Implementation
 
-This document outlines the secure admin authentication system that has been implemented for Jamaa Market.
+This document outlines the secure admin authentication system that has been implemented for Afrozy Market.
 
 ## 🔄 Changes Made
 
@@ -57,7 +57,7 @@ node scripts/createAdminUser.js
 ```
 
 **Default Admin Credentials:**
-- Email: `admin@jamaamarket.com`
+- Email: `admin@afrozymarket.com`
 - Password: `admin123`
 
 ⚠️ **IMPORTANT**: Change the default password after first login!
@@ -131,7 +131,7 @@ You can test admin endpoints with curl:
 # First, login and get token
 curl -X POST http://localhost:5000/api/auth/admin/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@jamaamarket.com","password":"admin123"}'
+  -d '{"email":"admin@afrozymarket.com","password":"admin123"}'
 
 # Use the returned token for admin endpoints
 curl -X GET http://localhost:5000/api/admin/products \

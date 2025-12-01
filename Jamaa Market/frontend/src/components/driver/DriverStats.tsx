@@ -54,7 +54,7 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('jamaa-driver-token');
+      const token = localStorage.getItem('afrozy-driver-token');
       
       const response = await axios.get(
         `${API_BASE_URL}/drivers/stats?range=${timeRange}`,
@@ -77,8 +77,8 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
       // If it's a token-related error, clear stored auth data
       if (err.response?.status === 401 || err.response?.status === 403) {
         console.log('Driver authentication error, clearing stored data:', errorMessage);
-        localStorage.removeItem('jamaa-driver-token');
-        localStorage.removeItem('jamaa-driver-data');
+        localStorage.removeItem('afrozy-driver-token');
+        localStorage.removeItem('afrozy-driver-data');
         // Reload the page to trigger re-authentication
         window.location.reload();
         return;
@@ -104,7 +104,7 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
         recentDeliveries: [
           {
             id: 1,
-            orderNumber: 'JM12345',
+            orderNumber: 'AF12345',
             customerName: 'John Doe',
             total: 25.99,
             deliveredAt: new Date().toISOString(),
@@ -112,7 +112,7 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
           },
           {
             id: 2,
-            orderNumber: 'JM12344',
+            orderNumber: 'AF12344',
             customerName: 'Jane Smith',
             total: 19.50,
             deliveredAt: new Date(Date.now() - 3600000).toISOString(),

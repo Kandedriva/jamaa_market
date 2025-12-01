@@ -77,7 +77,7 @@ const UserManagement: React.FC = () => {
         {
           id: 3,
           username: 'admin_user',
-          email: 'admin@jamaamarket.com',
+          email: 'admin@afrozymarket.com',
           full_name: 'Admin User',
           phone: '+1234567892',
           address: '789 Admin Blvd, City, State 12345',

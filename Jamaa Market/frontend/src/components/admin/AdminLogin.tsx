@@ -64,7 +64,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
         <div className="text-center">
           <img 
             src="/globe.png" 
-            alt="Jamaa Market" 
+            alt="Afrozy Market" 
             className="w-16 h-16 mx-auto"
           />
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">

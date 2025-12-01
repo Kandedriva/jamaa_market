@@ -73,10 +73,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onLogo
             <div className="flex items-center">
               <img 
                 src="/globe.png" 
-                alt="Jamaa Market" 
+                alt="Afrozy Market" 
                 className="w-8 h-8 mr-3"
               />
-              <h1 className="text-xl font-bold text-gray-900">Jamaa Market Admin</h1>
+              <h1 className="text-xl font-bold text-gray-900">Afrozy Market Admin</h1>
             </div>
 
             {/* Desktop navigation */}
@@ -107,7 +107,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onLogo
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-700">Admin User</p>
-                  <p className="text-xs text-gray-500">admin@jamaamarket.com</p>
+                  <p className="text-xs text-gray-500">admin@afrozymarket.com</p>
                 </div>
                 {onLogout && (
                   <button
@@ -167,7 +167,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, currentPage, onLogo
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-700">Admin User</p>
-                    <p className="text-xs text-gray-500">admin@jamaamarket.com</p>
+                    <p className="text-xs text-gray-500">admin@afrozymarket.com</p>
                   </div>
                 </div>
                 {onLogout && (

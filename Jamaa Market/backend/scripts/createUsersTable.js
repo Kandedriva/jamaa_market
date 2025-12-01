@@ -52,7 +52,7 @@ async function createUsersTable() {
 
     const adminResult = await pool.query(createAdminQuery, [
       'admin',
-      'admin@jamaamarket.com',
+      'admin@afrozymarket.com',
       defaultAdminPassword,
       'Admin User',
       'admin',
@@ -62,7 +62,7 @@ async function createUsersTable() {
 
     if (adminResult.rows.length > 0) {
       console.log('✅ Default admin user created successfully');
-      console.log('📧 Admin credentials: admin@jamaamarket.com / admin123');
+      console.log('📧 Admin credentials: admin@afrozymarket.com / admin123');
     } else {
       console.log('ℹ️  Admin user already exists');
     }

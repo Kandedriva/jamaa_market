@@ -39,9 +39,9 @@ const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [settings, setSettings] = useState<SettingsData>({
     general: {
-      siteName: 'Jamaa Market',
+      siteName: 'Afrozy Market',
       siteDescription: 'Your premier online marketplace for quality products',
-      contactEmail: 'contact@jamaamarket.com',
+      contactEmail: 'contact@afrozymarket.com',
       supportPhone: '+1 (555) 123-4567',
       currency: 'USD',
       timezone: 'UTC-5'

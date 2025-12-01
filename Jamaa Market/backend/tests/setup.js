@@ -2,7 +2,7 @@
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test_jwt_secret_key_for_testing_only';
 process.env.PGHOST = process.env.TEST_PGHOST || 'localhost';
-process.env.PGDATABASE = process.env.TEST_PGDATABASE || 'jamaa_market_test';
+process.env.PGDATABASE = process.env.TEST_PGDATABASE || 'afrozy_market_test';
 process.env.PGUSER = process.env.TEST_PGUSER || 'postgres';
 process.env.PGPASSWORD = process.env.TEST_PGPASSWORD || 'password';
 

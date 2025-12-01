@@ -104,7 +104,7 @@ async function createDriversTable() {
         [
           'DRV001',
           'John Driver',
-          'driver@jamaamarket.com',
+          'driver@afrozymarket.com',
           '+1-555-0123',
           passwordHash,
           'DL123456789',
@@ -117,7 +117,7 @@ async function createDriversTable() {
 
       console.log('✅ Sample driver created successfully');
       console.log('Driver credentials:');
-      console.log('Email: driver@jamaamarket.com');
+      console.log('Email: driver@afrozymarket.com');
       console.log('Password: driver123');
     } catch (insertError) {
       console.log(`Note: Could not insert sample driver: ${insertError.message}`);

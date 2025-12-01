@@ -41,7 +41,7 @@ async function createNotificationsTable() {
     const sampleNotifications = [
       {
         userId: 1, // Assuming user with ID 1 exists
-        title: 'Welcome to Jamaa Market!',
+        title: 'Welcome to Afrozy Market!',
         message: 'Thank you for joining our marketplace. Explore our wide range of products and enjoy shopping!',
         type: 'account'
       },

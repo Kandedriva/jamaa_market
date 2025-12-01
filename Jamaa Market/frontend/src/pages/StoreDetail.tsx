@@ -250,7 +250,7 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
               className="w-12 h-12 object-contain"
             />
             <div>
-              <h1 className="text-2xl font-bold">Jamaa Market</h1>
+              <h1 className="text-2xl font-bold">Afrozy Market</h1>
               <p className="text-blue-100">{store?.store_name}</p>
             </div>
           </div>

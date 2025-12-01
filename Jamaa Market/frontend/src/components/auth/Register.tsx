@@ -124,7 +124,7 @@ const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigateToLogi
         <div className="flex justify-center">
           <img 
             src="/globe.png" 
-            alt="Jamaa Market" 
+            alt="Afrozy Market" 
             className="w-16 h-16"
           />
         </div>

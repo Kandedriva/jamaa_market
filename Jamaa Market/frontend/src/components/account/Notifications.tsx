@@ -29,15 +29,15 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
     {
       id: 1,
       title: 'Order Confirmed',
-      message: 'Your order #JM2024001 has been confirmed and is being processed.',
+      message: 'Your order #AF2024001 has been confirmed and is being processed.',
       type: 'order',
       isRead: false,
       createdAt: '2024-11-07T10:30:00Z',
-      actionLink: '/account/orders/JM2024001'
+      actionLink: '/account/orders/AF2024001'
     },
     {
       id: 2,
-      title: 'Welcome to Jamaa Market!',
+      title: 'Welcome to Afrozy Market!',
       message: 'Thank you for joining our marketplace. Explore our wide range of products and enjoy shopping!',
       type: 'account',
       isRead: false,
@@ -54,11 +54,11 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
     {
       id: 4,
       title: 'Order Shipped',
-      message: 'Your order #JM2024000 has been shipped and will arrive in 2-3 business days.',
+      message: 'Your order #AF2024000 has been shipped and will arrive in 2-3 business days.',
       type: 'order',
       isRead: true,
       createdAt: '2024-11-04T14:20:00Z',
-      actionLink: '/account/orders/JM2024000'
+      actionLink: '/account/orders/AF2024000'
     },
     {
       id: 5,

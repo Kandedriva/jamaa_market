@@ -33,8 +33,8 @@ function AppContent() {
   // Check for existing authentication on app load
   useEffect(() => {
     const validateStoredAuth = async () => {
-      const token = localStorage.getItem('jamaa-market-token');
-      const userData = localStorage.getItem('jamaa-market-user');
+      const token = localStorage.getItem('afrozy-market-token');
+      const userData = localStorage.getItem('afrozy-market-user');
       
       if (token && userData) {
         try {
@@ -60,8 +60,8 @@ function AppContent() {
               }
             } else {
               // Token is invalid, clear stored data
-              localStorage.removeItem('jamaa-market-token');
-              localStorage.removeItem('jamaa-market-user');
+              localStorage.removeItem('afrozy-market-token');
+              localStorage.removeItem('afrozy-market-user');
             }
           } catch (networkError) {
             // Network error, assume token might still be valid for now
@@ -75,8 +75,8 @@ function AppContent() {
           }
         } catch (parseError) {
           // Invalid stored data, clear it
-          localStorage.removeItem('jamaa-market-token');
-          localStorage.removeItem('jamaa-market-user');
+          localStorage.removeItem('afrozy-market-token');
+          localStorage.removeItem('afrozy-market-user');
         }
       }
     };
@@ -98,7 +98,7 @@ function AppContent() {
     setUser(userData);
     
     // Store token with correct key name
-    localStorage.setItem('jamaa-market-token', token);
+    localStorage.setItem('afrozy-market-token', token);
     
     // Route based on user type
     if (userData.user_type === 'admin') {
@@ -120,7 +120,7 @@ function AppContent() {
     setUser(userData);
     
     // Store token with correct key name
-    localStorage.setItem('jamaa-market-token', token);
+    localStorage.setItem('afrozy-market-token', token);
     
     // New users go to store
     window.history.pushState(null, '', '/');
@@ -131,7 +131,7 @@ function AppContent() {
     setUser(userData);
     
     // Store token with correct key name
-    localStorage.setItem('jamaa-market-token', token);
+    localStorage.setItem('afrozy-market-token', token);
     
     // Set admin authentication
     setIsAdminAuthenticated(true);
@@ -143,7 +143,7 @@ function AppContent() {
     setUser(userData);
     
     // Store token with correct key name
-    localStorage.setItem('jamaa-market-token', token);
+    localStorage.setItem('afrozy-market-token', token);
     
     // Set store owner authentication
     setIsStoreOwnerAuthenticated(true);
@@ -155,7 +155,7 @@ function AppContent() {
     setUser(userData);
     
     // Store token with correct key name
-    localStorage.setItem('jamaa-market-token', token);
+    localStorage.setItem('afrozy-market-token', token);
     
     // Set store owner authentication
     setIsStoreOwnerAuthenticated(true);

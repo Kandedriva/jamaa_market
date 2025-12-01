@@ -62,7 +62,7 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
     console.log(`[${requestId}] Starting profile update request`);
 
     try {
-      const token = localStorage.getItem('jamaa-market-token');
+      const token = localStorage.getItem('afrozy-market-token');
       
       if (!token) {
         console.log(`[${requestId}] No token found`);
@@ -146,8 +146,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
         showMessage('error', 'Your session has expired. Please log in again.');
         setTimeout(() => {
           // Clear stored authentication data
-          localStorage.removeItem('jamaa-market-token');
-          localStorage.removeItem('jamaa-market-user');
+          localStorage.removeItem('afrozy-market-token');
+          localStorage.removeItem('afrozy-market-user');
           // Trigger logout which will redirect to login
           onLogout();
         }, 2000);
@@ -494,8 +494,8 @@ const Settings: React.FC<SettingsProps> = ({ user, onLogout }) => {
                     <div className="space-x-2">
                       <button
                         onClick={() => {
-                          localStorage.removeItem('jamaa-market-token');
-                          localStorage.removeItem('jamaa-market-user');
+                          localStorage.removeItem('afrozy-market-token');
+                          localStorage.removeItem('afrozy-market-user');
                           showMessage('success', 'Session data cleared. Please log in again.');
                           setTimeout(() => onLogout(), 1500);
                         }}
