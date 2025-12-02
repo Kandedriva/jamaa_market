@@ -6,8 +6,13 @@ const pool = new Pool({
   database: process.env.PGDATABASE,
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
-  port: 5432,
-  ssl: process.env.PGSSLMODE === 'require'
+  port: process.env.PGPORT || 5432,
+  ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : false,
+  max: parseInt(process.env.DB_POOL_MAX) || 20,
+  min: parseInt(process.env.DB_POOL_MIN) || 2,
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000,
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 5000,
+  application_name: 'afrozy_market'
 });
 
 const connectDB = async () => {

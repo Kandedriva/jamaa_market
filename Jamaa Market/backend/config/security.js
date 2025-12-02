@@ -52,8 +52,13 @@ const helmetOptions = {
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // In production, be more strict about origins
+    if (process.env.NODE_ENV === 'production' && !origin) {
+      return callback(new Error('Not allowed by CORS - no origin'));
+    }
+    
+    // Allow requests with no origin in development (like mobile apps or curl requests)
+    if (!origin && process.env.NODE_ENV !== 'production') return callback(null, true);
     
     const allowedOrigins = [
       'http://localhost:3000',
@@ -62,20 +67,25 @@ const corsOptions = {
       'http://127.0.0.1:3001',
     ];
     
-    // Add production domain when available
+    // Add production domains when available
     if (process.env.CLIENT_URL) {
       allowedOrigins.push(process.env.CLIENT_URL);
+    }
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL);
     }
     
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(new Error(`Not allowed by CORS - origin: ${origin}`));
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Session-Id', 'X-Requested-With'],
+  exposedHeaders: ['X-Total-Count', 'X-Page-Count'],
+  maxAge: 86400, // 24 hours
 };
 
 // Password validation function

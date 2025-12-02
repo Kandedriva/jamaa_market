@@ -1,8 +1,13 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+const morgan = require('morgan');
 require('dotenv').config();
 
 const { connectDB } = require('./config/database');
+const logger = require('./config/logger');
+const { corsOptions, helmetOptions, generalLimiter } = require('./config/security');
 const createTables = require('./scripts/createTables');
 const createCartTable = require('./scripts/createCartTable');
 const createStoresTable = require('./scripts/createStoresTable');
@@ -11,15 +16,80 @@ const createOrdersTable = require('./scripts/createOrdersTable');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
-app.use(express.json());
+// Trust proxy for production deployment (behind load balancer/proxy)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
+// Security middleware
+app.use(helmet(helmetOptions));
+app.use(cors(corsOptions));
+app.use(compression());
+app.use(generalLimiter);
+
+// Request logging
+const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
+app.use(morgan(morganFormat, {
+  stream: {
+    write: (message) => logger.http(message.trim())
+  }
+}));
+
+// Body parsing middleware with size limits
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Afrozy Market API is running!' });
 });
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+// Enhanced health check endpoint
+app.get('/health', async (req, res) => {
+  const healthcheck = {
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV,
+    version: process.env.npm_package_version || '1.0.0',
+    memory: process.memoryUsage()
+  };
+
+  try {
+    // Check database connection with timeout
+    const { pool } = require('./config/database');
+    const client = await Promise.race([
+      pool.connect(),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Database connection timeout')), 5000)
+      )
+    ]);
+    await client.query('SELECT 1');
+    client.release();
+    healthcheck.database = 'connected';
+  } catch (error) {
+    healthcheck.database = 'disconnected';
+    healthcheck.status = 'ERROR';
+    healthcheck.error = error.message;
+    logger.error('Health check database error:', error);
+  }
+
+  const statusCode = healthcheck.status === 'OK' ? 200 : 503;
+  res.status(statusCode).json(healthcheck);
+});
+
+// API version endpoint
+app.get('/api', (req, res) => {
+  res.json({
+    name: 'Afrozy Market API',
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Products routes
@@ -54,22 +124,84 @@ app.use('/api/drivers', driverRoutes);
 const storeRoutes = require('./routes/store');
 app.use('/api/store', storeRoutes);
 
+// Global error handler
+app.use((err, req, res, next) => {
+  logger.error('Unhandled error:', {
+    error: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+
+  // Don't leak error details in production
+  const message = process.env.NODE_ENV === 'production' 
+    ? 'Internal server error' 
+    : err.message;
+
+  res.status(err.status || 500).json({
+    success: false,
+    message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  });
+});
+
+// Handle 404 routes
+app.use('*', (req, res) => {
+  logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
+});
+
 const startServer = async () => {
   try {
+    // Connect to database
     await connectDB();
+    logger.info('Database connected successfully');
+
+    // Initialize database tables
     await createTables();
-    // Skip createUsersTable - we now use separate tables (admins, customers, store_owners)
     await createCartTable();
     await createStoresTable();
     await createOrdersTable();
-    
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    logger.info('Database tables initialized');
+
+    // Start server
+    const server = app.listen(PORT, () => {
+      logger.info(`🚀 Afrozy Market API running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+      logger.info(`📍 Health check available at http://localhost:${PORT}/health`);
     });
+
+    // Graceful shutdown handling
+    const gracefulShutdown = (signal) => {
+      logger.info(`Received ${signal}. Starting graceful shutdown...`);
+      server.close(() => {
+        logger.info('Server closed successfully');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
   } catch (error) {
-    console.error('Failed to start server:', error.message);
+    logger.error('Failed to start server:', error);
     process.exit(1);
   }
 };
+
+// Handle uncaught exceptions and rejections
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
 
 startServer();
