@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -47,11 +47,7 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
   const [error, setError] = useState('');
   const [timeRange, setTimeRange] = useState<'today' | 'week' | 'month' | 'all'>('week');
 
-  useEffect(() => {
-    fetchStats();
-  }, [timeRange]);
-
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('afrozy-driver-token');
@@ -123,7 +119,11 @@ const DriverStats: React.FC<DriverStatsProps> = ({ driver }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [timeRange, driver.totalDeliveries, driver.rating]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   const getEarningsForRange = () => {
     if (!stats) return 0;

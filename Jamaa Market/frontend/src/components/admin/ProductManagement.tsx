@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ImageUpload from '../ImageUpload';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -29,6 +30,8 @@ const ProductManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     description: '',
@@ -115,6 +118,27 @@ const ProductManagement: React.FC = () => {
       stock_quantity: ''
     });
     setEditingProduct(null);
+    setUploadError(null);
+    setUploadSuccess(null);
+  };
+
+  const handleImageUpload = (imageData: any) => {
+    setFormData({
+      ...formData,
+      image_url: imageData.imageUrl || imageData.allUrls.large
+    });
+    setUploadSuccess('Image uploaded successfully!');
+    setUploadError(null);
+  };
+
+  const handleUploadError = (error: string) => {
+    setUploadError(error);
+    setUploadSuccess(null);
+  };
+
+  const handleUploadStart = () => {
+    setUploadError(null);
+    setUploadSuccess(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -239,15 +263,50 @@ const ProductManagement: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                <input
-                  type="url"
-                  name="image_url"
-                  value={formData.image_url}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                <ImageUpload
+                  onImageUpload={handleImageUpload}
+                  onUploadStart={handleUploadStart}
+                  onUploadError={handleUploadError}
+                  uploadType="product"
+                  productId={editingProduct?.id.toString()}
+                  buttonText="Upload Product Image"
+                  className="mt-1"
                 />
+                {uploadError && (
+                  <div className="mt-2 text-sm text-red-600">
+                    {uploadError}
+                  </div>
+                )}
+                {uploadSuccess && (
+                  <div className="mt-2 text-sm text-green-600">
+                    {uploadSuccess}
+                  </div>
+                )}
+                {formData.image_url && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Image:</p>
+                    <div className="flex items-center space-x-3">
+                      <img 
+                        src={formData.image_url} 
+                        alt="Product preview" 
+                        className="w-16 h-16 rounded-md object-cover border"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-gray-600 truncate">
+                          {formData.image_url}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({...formData, image_url: ''})}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex space-x-3 pt-4">

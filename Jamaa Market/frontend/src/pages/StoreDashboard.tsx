@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ImageUpload from '../components/ImageUpload';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -55,6 +56,8 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
   // Product form state
   const [productForm, setProductForm] = useState({
@@ -189,6 +192,27 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
       stock_quantity: ''
     });
     setEditingProduct(null);
+    setUploadError(null);
+    setUploadSuccess(null);
+  };
+
+  const handleImageUpload = (imageData: any) => {
+    setProductForm({
+      ...productForm,
+      image_url: imageData.imageUrl || imageData.allUrls.large
+    });
+    setUploadSuccess('Image uploaded successfully!');
+    setUploadError(null);
+  };
+
+  const handleUploadError = (error: string) => {
+    setUploadError(error);
+    setUploadSuccess(null);
+  };
+
+  const handleUploadStart = () => {
+    setUploadError(null);
+    setUploadSuccess(null);
   };
 
   const handleEditProduct = (product: Product) => {
@@ -378,14 +402,50 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Image URL</label>
-            <input
-              type="url"
-              value={productForm.image_url}
-              onChange={(e) => setProductForm({...productForm, image_url: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-              required
+            <label className="block text-sm font-medium text-gray-700 mb-2">Product Image</label>
+            <ImageUpload
+              onImageUpload={handleImageUpload}
+              onUploadStart={handleUploadStart}
+              onUploadError={handleUploadError}
+              uploadType="product"
+              productId={editingProduct?.id.toString()}
+              buttonText="Upload Product Image"
+              className="mt-1"
             />
+            {uploadError && (
+              <div className="mt-2 text-sm text-red-600">
+                {uploadError}
+              </div>
+            )}
+            {uploadSuccess && (
+              <div className="mt-2 text-sm text-green-600">
+                {uploadSuccess}
+              </div>
+            )}
+            {productForm.image_url && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Image:</p>
+                <div className="flex items-center space-x-3">
+                  <img 
+                    src={productForm.image_url} 
+                    alt="Product preview" 
+                    className="w-16 h-16 rounded-md object-cover border"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-600 truncate">
+                      {productForm.image_url}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setProductForm({...productForm, image_url: ''})}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="flex space-x-4">
             <button

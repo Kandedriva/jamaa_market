@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -43,11 +43,7 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [updating, setUpdating] = useState<number | null>(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, [statusFilter]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('afrozy-driver-token');
@@ -86,7 +82,11 @@ const DriverOrders: React.FC<DriverOrdersProps> = ({ driver }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const updateOrderStatus = async (orderId: number, newStatus: string) => {
     try {

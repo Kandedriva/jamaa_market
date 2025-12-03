@@ -5,7 +5,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 require('dotenv').config();
 
-const { connectDB } = require('./config/database');
+const { connectDB, closePool } = require('./config/database');
 const logger = require('./config/logger');
 const { corsOptions, helmetOptions, generalLimiter } = require('./config/security');
 const createTables = require('./scripts/createTables');
@@ -60,17 +60,34 @@ app.get('/health', async (req, res) => {
   };
 
   try {
-    // Check database connection with timeout
+    // Check database connection with timeout and retry
     const { pool } = require('./config/database');
-    const client = await Promise.race([
-      pool.connect(),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Database connection timeout')), 5000)
-      )
-    ]);
-    await client.query('SELECT 1');
-    client.release();
-    healthcheck.database = 'connected';
+    let client;
+    
+    try {
+      client = await Promise.race([
+        pool.connect(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database connection timeout')), 3000)
+        )
+      ]);
+      
+      await Promise.race([
+        client.query('SELECT 1'),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database query timeout')), 2000)
+        )
+      ]);
+      
+      healthcheck.database = 'connected';
+      healthcheck.pool = {
+        totalCount: pool.totalCount,
+        idleCount: pool.idleCount,
+        waitingCount: pool.waitingCount
+      };
+    } finally {
+      if (client) client.release();
+    }
   } catch (error) {
     healthcheck.database = 'disconnected';
     healthcheck.status = 'ERROR';
@@ -124,6 +141,10 @@ app.use('/api/drivers', driverRoutes);
 const storeRoutes = require('./routes/store');
 app.use('/api/store', storeRoutes);
 
+// Image upload routes
+const imageRoutes = require('./routes/images');
+app.use('/api/images', imageRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', {
@@ -148,7 +169,7 @@ app.use((err, req, res, next) => {
 });
 
 // Handle 404 routes
-app.use('*', (req, res) => {
+app.use((req, res) => {
   logger.warn(`404 - Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     success: false,
@@ -176,12 +197,25 @@ const startServer = async () => {
     });
 
     // Graceful shutdown handling
-    const gracefulShutdown = (signal) => {
+    const gracefulShutdown = async (signal) => {
       logger.info(`Received ${signal}. Starting graceful shutdown...`);
-      server.close(() => {
-        logger.info('Server closed successfully');
+      server.close(async () => {
+        logger.info('HTTP server closed');
+        try {
+          await closePool();
+          logger.info('Database connections closed');
+        } catch (error) {
+          logger.error('Error closing database:', error);
+        }
+        logger.info('Graceful shutdown completed');
         process.exit(0);
       });
+      
+      // Force exit after 15 seconds
+      setTimeout(() => {
+        logger.error('Forcing shutdown after timeout');
+        process.exit(1);
+      }, 15000);
     };
 
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

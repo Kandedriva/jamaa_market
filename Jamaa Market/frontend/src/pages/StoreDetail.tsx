@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import ProductCard from '../components/ProductCard';
 import CartSidebar from '../components/CartSidebar';
@@ -84,20 +84,7 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
   const [showContactModal, setShowContactModal] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  useEffect(() => {
-    if (storeId) {
-      fetchStoreDetails();
-      fetchStoreProducts();
-    }
-  }, [storeId]);
-
-  useEffect(() => {
-    if (storeId) {
-      fetchStoreProducts();
-    }
-  }, [currentPage, searchQuery, sortBy, sortOrder]);
-
-  const fetchStoreDetails = async () => {
+  const fetchStoreDetails = useCallback(async () => {
     try {
       const response = await axios.get(`${API_BASE_URL}/store/${storeId}`);
       if (response.data.success) {
@@ -109,9 +96,9 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
       setError(err.response?.data?.message || 'Error connecting to server');
       console.error('Error fetching store details:', err);
     }
-  };
+  }, [storeId]);
 
-  const fetchStoreProducts = async () => {
+  const fetchStoreProducts = useCallback(async () => {
     try {
       setProductsLoading(true);
       const params = new URLSearchParams({
@@ -136,7 +123,7 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
       setLoading(false);
       setProductsLoading(false);
     }
-  };
+  }, [storeId, currentPage, searchQuery, sortBy, sortOrder]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,6 +135,10 @@ const StoreDetail: React.FC<StoreDetailProps> = ({ storeId, user, onLogout }) =>
     setCurrentPage(page);
   };
 
+  useEffect(() => {
+    fetchStoreDetails();
+    fetchStoreProducts();
+  }, [fetchStoreDetails, fetchStoreProducts]);
 
   const ContactModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
