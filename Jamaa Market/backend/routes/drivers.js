@@ -1,13 +1,8 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 
 const router = express.Router();
-
-// JWT secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 // Validation helper functions
 const validateEmail = (email) => {
@@ -20,37 +15,30 @@ const validatePhone = (phone) => {
   return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
 };
 
-// Middleware to authenticate driver JWT token
+// Middleware to authenticate driver session
 function authenticateDriver(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
+  if (!req.session || !req.session.userId || !req.session.userType) {
     return res.status(401).json({
       success: false,
-      message: 'Driver access token required'
+      message: 'Driver authentication required. Please log in.'
     });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({
-        success: false,
-        message: 'Invalid or expired token'
-      });
-    }
+  // Check if user is a driver
+  if (req.session.userType !== 'driver') {
+    return res.status(403).json({
+      success: false,
+      message: 'Driver access required'
+    });
+  }
 
-    // Check if user is a driver
-    if (decoded.userType !== 'driver') {
-      return res.status(403).json({
-        success: false,
-        message: 'Driver access required'
-      });
-    }
-
-    req.driver = decoded;
-    next();
-  });
+  req.driver = {
+    driverId: req.session.userId,
+    email: req.session.email,
+    userType: req.session.userType,
+    driverCode: req.session.driverCode
+  };
+  next();
 }
 
 // POST /api/drivers/register - Driver registration
@@ -231,17 +219,11 @@ router.post('/login', async (req, res) => {
       ['online', driver.id]
     );
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        driverId: driver.id,
-        email: driver.email, 
-        userType: 'driver',
-        driverCode: driver.driver_id
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    // Create session
+    req.session.userId = driver.id;
+    req.session.userType = 'driver';
+    req.session.email = driver.email;
+    req.session.driverCode = driver.driver_id;
 
     // Remove sensitive data before sending response
     delete driver.password_hash;
@@ -264,8 +246,7 @@ router.post('/login', async (req, res) => {
           rating: parseFloat(driver.rating),
           totalDeliveries: driver.total_deliveries,
           createdAt: driver.created_at
-        },
-        token
+        }
       }
     });
 
@@ -289,9 +270,21 @@ router.post('/logout', authenticateDriver, async (req, res) => {
       ['offline', driverId]
     );
 
-    res.json({
-      success: true,
-      message: 'Driver logout successful'
+    // Destroy session
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('Session destruction error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'Error during logout'
+        });
+      }
+      
+      res.clearCookie('connect.sid');
+      res.json({
+        success: true,
+        message: 'Driver logout successful'
+      });
     });
 
   } catch (error) {

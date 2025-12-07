@@ -1,16 +1,12 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 /**
  * Authenticate a user by email and password across all user types
  * @param {string} email - User email
  * @param {string} password - User password
  * @param {string} userType - Expected user type ('admin', 'customer', 'store_owner') - optional
- * @returns {Object} - Authentication result with user data and token
+ * @returns {Object} - Authentication result with user data
  */
 async function authenticateUser(email, password, userType = null) {
   try {
@@ -93,17 +89,6 @@ async function authenticateUser(email, password, userType = null) {
       [user.id]
     );
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        userType: actualUserType 
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
     // Remove password hash from response
     delete user.password_hash;
     user.user_type = actualUserType;
@@ -112,8 +97,7 @@ async function authenticateUser(email, password, userType = null) {
       success: true,
       message: 'Authentication successful',
       data: {
-        user,
-        token
+        user
       }
     };
 
@@ -218,26 +202,21 @@ async function createUser(userData, userType) {
 }
 
 /**
- * JWT middleware for authentication
+ * Session-based authentication middleware
  * @param {string} requiredUserType - Required user type (optional)
  * @returns {Function} - Express middleware function
  */
-function authenticateToken(requiredUserType = null) {
+function authenticateSession(requiredUserType = null) {
   return async (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
+    if (!req.session || !req.session.userId || !req.session.userType) {
       return res.status(401).json({
         success: false,
-        message: 'Access token required'
+        message: 'Authentication required. Please log in.'
       });
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      
-      if (requiredUserType && decoded.userType !== requiredUserType) {
+      if (requiredUserType && req.session.userType !== requiredUserType) {
         return res.status(403).json({
           success: false,
           message: `${requiredUserType} access required`
@@ -245,29 +224,45 @@ function authenticateToken(requiredUserType = null) {
       }
 
       // Get fresh user data
-      const user = await getUserById(decoded.userId, decoded.userType);
+      const user = await getUserById(req.session.userId, req.session.userType);
+      
       if (!user) {
+        req.session.destroy();
         return res.status(403).json({
           success: false,
-          message: 'User not found'
+          message: 'User not found. Session cleared.'
         });
       }
 
-      req.user = { ...decoded, ...user };
+      // Check if user is still active
+      if (user.status !== 'active') {
+        req.session.destroy();
+        return res.status(403).json({
+          success: false,
+          message: 'Account is not active. Session cleared.'
+        });
+      }
+
+      req.user = { userId: req.session.userId, userType: req.session.userType, ...user };
       next();
     } catch (error) {
-      console.error('Token verification error:', error);
-      return res.status(403).json({
+      console.error('Session authentication error:', error.message);
+      req.session.destroy();
+      return res.status(500).json({
         success: false,
-        message: 'Invalid or expired token'
+        message: 'Authentication error. Please log in again.'
       });
     }
   };
 }
 
+// Backward compatibility alias
+const authenticateToken = authenticateSession;
+
 module.exports = {
   authenticateUser,
   getUserById,
   createUser,
+  authenticateSession,
   authenticateToken
 };

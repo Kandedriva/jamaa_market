@@ -89,24 +89,24 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       }
 
       // Determine endpoint based on upload type
-      let endpoint = '/api/images/upload';
+      let endpoint = '/images/upload';
       switch (uploadType) {
         case 'product':
-          endpoint = '/api/images/product';
+          endpoint = '/images/product';
           break;
         case 'store-logo':
-          endpoint = '/api/images/store-logo';
+          endpoint = '/images/store-logo';
           break;
         default:
-          endpoint = '/api/images/upload';
+          endpoint = '/images/upload';
       }
 
-      const token = localStorage.getItem('token');
-      const response = await axios.post(`${process.env.REACT_APP_API_URL || 'http://localhost:3001'}${endpoint}`, formData, {
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+      const response = await axios.post(`${baseUrl}${endpoint}`, formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        }
+          'Content-Type': 'multipart/form-data'
+        },
+        withCredentials: true // This ensures session cookies are sent
       });
 
       if (response.data.success) {
@@ -116,8 +116,23 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       }
     } catch (error: any) {
       console.error('Upload error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
-      onUploadError?.(errorMessage);
+      
+      // Check if it's an authentication error
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        const authErrorMessage = 'Authentication failed. Please log out and log back in to refresh your session.';
+        onUploadError?.(authErrorMessage);
+        
+        // Clear any stored authentication data
+        localStorage.removeItem('afrozy-market-token');
+        localStorage.removeItem('afrozy-market-user');
+        
+        // Optionally redirect to login page or show login modal
+        // window.location.href = '/login';
+      } else {
+        const errorMessage = error.response?.data?.message || error.message || 'Upload failed';
+        onUploadError?.(errorMessage);
+      }
+      
       setPreviewUrl(null);
     } finally {
       setIsUploading(false);

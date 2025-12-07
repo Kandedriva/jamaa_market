@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const r2Service = require('../config/r2');
 const { uploadSingle, uploadMultiple, requireFile } = require('../middleware/upload');
-const { authenticateToken } = require('../utils/auth');
+const { authenticateSession } = require('../utils/auth');
 const logger = require('../config/logger');
+
 
 // Middleware to check R2 configuration
 const checkR2Config = (req, res, next) => {
@@ -18,7 +19,7 @@ const checkR2Config = (req, res, next) => {
 
 
 // Test R2 connection endpoint
-router.get('/test-connection', authenticateToken, async (req, res) => {
+router.get('/test-connection', authenticateSession(), async (req, res) => {
   try {
     const isConnected = await r2Service.testConnection();
     res.json({
@@ -37,7 +38,7 @@ router.get('/test-connection', authenticateToken, async (req, res) => {
 
 // Upload single image
 router.post('/upload', 
-  authenticateToken,
+  authenticateSession(),
   checkR2Config,
   uploadSingle('image'),
   requireFile,
@@ -52,7 +53,7 @@ router.post('/upload',
 
       const imageUrls = await r2Service.uploadImage(file, options);
 
-      logger.info(`Image uploaded by user ${req.user.user_id}: ${file.originalname}`);
+      logger.info(`Image uploaded by user ${req.user.userId}: ${file.originalname}`);
 
       res.json({
         success: true,
@@ -77,7 +78,7 @@ router.post('/upload',
 
 // Upload multiple images
 router.post('/upload-multiple',
-  authenticateToken,
+  authenticateSession(),
   checkR2Config,
   uploadMultiple('images', 5), // Max 5 images for products
   requireFile,
@@ -100,7 +101,7 @@ router.post('/upload-multiple',
 
       const uploadResults = await r2Service.uploadMultipleImages(files, options);
 
-      logger.info(`${files.length} images uploaded by user ${req.user.user_id}`);
+      logger.info(`${files.length} images uploaded by user ${req.user.userId}`);
 
       res.json({
         success: true,
@@ -127,7 +128,7 @@ router.post('/upload-multiple',
 
 // Delete image
 router.delete('/delete',
-  authenticateToken,
+  authenticateSession(),
   checkR2Config,
   async (req, res) => {
     try {
@@ -142,7 +143,7 @@ router.delete('/delete',
 
       await r2Service.deleteImage(keys);
 
-      logger.info(`Images deleted by user ${req.user.user_id}: ${keys.join(', ')}`);
+      logger.info(`Images deleted by user ${req.user.userId}: ${keys.join(', ')}`);
 
       res.json({
         success: true,
@@ -161,7 +162,7 @@ router.delete('/delete',
 
 // Get image metadata
 router.get('/metadata/:key',
-  authenticateToken,
+  authenticateSession(),
   checkR2Config,
   async (req, res) => {
     try {
@@ -193,7 +194,7 @@ router.get('/metadata/:key',
 
 // Upload product image (specific for products)
 router.post('/product',
-  authenticateToken,
+  authenticateSession(),
   checkR2Config,
   uploadSingle('image'),
   requireFile,
@@ -211,7 +212,7 @@ router.post('/product',
 
       const imageUrls = await r2Service.uploadImage(file, options);
 
-      logger.info(`Product image uploaded by user ${req.user.user_id}: ${file.originalname}`);
+      logger.info(`Product image uploaded by user ${req.user ? req.user.userId : 'unknown'}: ${file.originalname}`);
 
       res.json({
         success: true,
@@ -236,7 +237,7 @@ router.post('/product',
 
 // Upload store logo
 router.post('/store-logo',
-  authenticateToken,
+  authenticateSession(),
   checkR2Config,
   uploadSingle('logo'),
   requireFile,
@@ -257,7 +258,7 @@ router.post('/store-logo',
         prefix: storeId ? `stores/${storeId}/logo` : 'stores/logos'
       });
 
-      logger.info(`Store logo uploaded by user ${req.user.user_id}: ${file.originalname}`);
+      logger.info(`Store logo uploaded by user ${req.user.userId}: ${file.originalname}`);
 
       res.json({
         success: true,

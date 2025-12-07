@@ -1,6 +1,6 @@
 const express = require('express');
 const { pool } = require('../config/database');
-const { authenticateToken } = require('./auth');
+const { authenticateSession } = require('./auth');
 
 const router = express.Router();
 
@@ -55,7 +55,7 @@ async function assignOrderToDriver(client, orderId) {
 }
 
 // GET user orders
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const { status, page = 1, limit = 10 } = req.query;
@@ -131,7 +131,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // GET specific order details
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const orderId = req.params.id;
@@ -354,7 +354,7 @@ router.post('/', authenticateUser, async (req, res) => {
 });
 
 // PUT cancel order
-router.put('/:id/cancel', authenticateToken, async (req, res) => {
+router.put('/:id/cancel', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const orderId = req.params.id;

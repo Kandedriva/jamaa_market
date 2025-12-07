@@ -33,23 +33,20 @@ function AppContent() {
   // Check for existing authentication on app load
   useEffect(() => {
     const validateStoredAuth = async () => {
-      const token = localStorage.getItem('afrozy-market-token');
       const userData = localStorage.getItem('afrozy-market-user');
       
-      if (token && userData) {
+      if (userData) {
         try {
           const parsedUser = JSON.parse(userData);
           
-          // Validate token by making a test request
+          // Validate session by making a test request
           try {
             const response = await fetch('http://localhost:3001/api/auth/profile', {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
+              credentials: 'include' // Include session cookies
             });
             
             if (response.ok) {
-              // Token is valid
+              // Session is valid
               setUser(parsedUser);
               
               // Set authentication based on user type
@@ -59,12 +56,11 @@ function AppContent() {
                 setIsStoreOwnerAuthenticated(true);
               }
             } else {
-              // Token is invalid, clear stored data
-              localStorage.removeItem('afrozy-market-token');
+              // Session is invalid, clear stored data
               localStorage.removeItem('afrozy-market-user');
             }
           } catch (networkError) {
-            // Network error, assume token might still be valid for now
+            // Network error, assume session might still be valid for now
             setUser(parsedUser);
             
             if (parsedUser.user_type === 'admin') {
@@ -75,7 +71,6 @@ function AppContent() {
           }
         } catch (parseError) {
           // Invalid stored data, clear it
-          localStorage.removeItem('afrozy-market-token');
           localStorage.removeItem('afrozy-market-user');
         }
       }
@@ -97,8 +92,8 @@ function AppContent() {
   const handleLogin = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store token with correct key name
-    localStorage.setItem('afrozy-market-token', token);
+    // Store user data (no token needed for session auth)
+    localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
     
     // Route based on user type
     if (userData.user_type === 'admin') {
@@ -119,8 +114,8 @@ function AppContent() {
   const handleRegister = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store token with correct key name
-    localStorage.setItem('afrozy-market-token', token);
+    // Store user data (no token needed for session auth)
+    localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
     
     // New users go to store
     window.history.pushState(null, '', '/');
@@ -130,8 +125,8 @@ function AppContent() {
   const handleAdminLogin = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store token with correct key name
-    localStorage.setItem('afrozy-market-token', token);
+    // Store user data (no token needed for session auth)
+    localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
     
     // Set admin authentication
     setIsAdminAuthenticated(true);
@@ -142,8 +137,8 @@ function AppContent() {
   const handleStoreOwnerLogin = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store token with correct key name
-    localStorage.setItem('afrozy-market-token', token);
+    // Store user data (no token needed for session auth)
+    localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
     
     // Set store owner authentication
     setIsStoreOwnerAuthenticated(true);
@@ -154,8 +149,8 @@ function AppContent() {
   const handleStoreOwnerRegister = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store token with correct key name
-    localStorage.setItem('afrozy-market-token', token);
+    // Store user data (no token needed for session auth)
+    localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
     
     // Set store owner authentication
     setIsStoreOwnerAuthenticated(true);

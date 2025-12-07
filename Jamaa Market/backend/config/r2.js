@@ -18,6 +18,12 @@ class R2Service {
         secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
       },
       forcePathStyle: false,
+      maxAttempts: 3,
+      retryMode: 'adaptive',
+      requestTimeout: 30000,
+      maxSockets: 25,
+      keepAlive: true,
+      keepAliveMsecs: 1000
     });
     
     this.bucketName = process.env.R2_BUCKET_NAME;
@@ -55,13 +61,22 @@ class R2Service {
     } = options;
 
     try {
-      const processedImage = await sharp(buffer)
+      const sharpInstance = sharp(buffer);
+      
+      // Optimize for performance
+      const processedImage = await sharpInstance
         .resize(width, height, { 
           fit: 'inside', 
-          withoutEnlargement: true 
+          withoutEnlargement: true,
+          kernel: sharp.kernel.lanczos3
         })
-        .toFormat(format, { quality })
-        .toBuffer();
+        .toFormat(format, { 
+          quality,
+          progressive: true,
+          optimizeScans: true,
+          mozjpeg: format === 'jpeg'
+        })
+        .toBuffer({ resolveWithObject: false });
 
       return processedImage;
     } catch (error) {
@@ -86,6 +101,11 @@ class R2Service {
    */
   async uploadImage(file, options = {}) {
     try {
+      // Validate R2 configuration
+      if (!this.isConfigured()) {
+        throw new Error('R2 service is not properly configured. Please check environment variables.');
+      }
+
       // Validate file
       this.validateImageFile(file);
 
@@ -94,7 +114,7 @@ class R2Service {
       const fileName = this.generateFileName(file.originalname, options.prefix || 'products');
       const baseName = fileName.replace(/\.[^/.]+$/, "");
 
-      // Create multiple sizes
+      // Create multiple sizes with optimized processing
       const sizes = [
         { suffix: '_thumb', width: 150, height: 150, quality: 80 },
         { suffix: '_medium', width: 400, height: 300, quality: 85 },
@@ -103,39 +123,53 @@ class R2Service {
       ];
 
       const uploadPromises = sizes.map(async (size) => {
-        const processedBuffer = size.buffer || await this.processImage(originalBuffer, size);
-        const sizeFileName = size.suffix === '_original' ? fileName : `${baseName}${size.suffix}.webp`;
-        
-        const uploadParams = {
-          Bucket: this.bucketName,
-          Key: sizeFileName,
-          Body: processedBuffer,
-          ContentType: size.suffix === '_original' ? file.mimetype : 'image/webp',
-          CacheControl: 'public, max-age=31536000', // 1 year cache
-          Metadata: {
-            originalName: file.originalname,
-            uploadedAt: new Date().toISOString(),
-            size: size.suffix
+        try {
+          const processedBuffer = size.buffer || await this.processImage(originalBuffer, size);
+          const sizeFileName = size.suffix === '_original' ? fileName : `${baseName}${size.suffix}.webp`;
+          
+          const uploadParams = {
+            Bucket: this.bucketName,
+            Key: sizeFileName,
+            Body: processedBuffer,
+            ContentType: size.suffix === '_original' ? file.mimetype : 'image/webp',
+            CacheControl: 'public, max-age=31536000', // 1 year cache
+            ContentDisposition: 'inline',
+            Metadata: {
+              originalName: file.originalname,
+              uploadedAt: new Date().toISOString(),
+              size: size.suffix
+            }
+          };
+
+          // Use Upload with progress tracking for larger files
+          if (processedBuffer.length > 1024 * 1024) { // 1MB
+            const upload = new Upload({
+              client: this.client,
+              params: uploadParams,
+              partSize: 1024 * 1024 * 5, // 5MB parts
+              leavePartsOnError: false
+            });
+
+            await upload.done();
+          } else {
+            // Use simple put for smaller files
+            await this.client.send(new PutObjectCommand(uploadParams));
           }
-        };
-
-        const upload = new Upload({
-          client: this.client,
-          params: uploadParams,
-        });
-
-        await upload.done();
-        
-        // Generate public URL - use the public URL base + filename
-        const publicUrl = this.publicUrl.endsWith('/') 
-          ? `${this.publicUrl}${sizeFileName}` 
-          : `${this.publicUrl}/${sizeFileName}`;
-        
-        return {
-          size: size.suffix.replace('_', ''),
-          url: publicUrl,
-          key: sizeFileName
-        };
+          
+          // Generate public URL - use the public URL base + filename
+          const publicUrl = this.publicUrl.endsWith('/') 
+            ? `${this.publicUrl}${sizeFileName}` 
+            : `${this.publicUrl}/${sizeFileName}`;
+          
+          return {
+            size: size.suffix.replace('_', ''),
+            url: publicUrl,
+            key: sizeFileName
+          };
+        } catch (uploadError) {
+          logger.error(`Error uploading size ${size.suffix}:`, uploadError);
+          throw new Error(`Failed to upload ${size.suffix}: ${uploadError.message}`);
+        }
       });
 
       const uploadResults = await Promise.all(uploadPromises);

@@ -1,14 +1,15 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { authenticateUser, createUser, authenticateToken } = require('../utils/auth');
+const { authenticateUser, createUser, authenticateSession } = require('../utils/auth');
 const { pool } = require('../config/database');
+const { 
+  getUserSessions, 
+  destroyUserSessions, 
+  destroySession,
+  getSessionStats 
+} = require('../utils/sessionUtils');
 
 const router = express.Router();
-
-// JWT configuration
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 // Validation helper functions
 const validateEmail = (email) => {
@@ -75,23 +76,18 @@ router.post('/register', async (req, res) => {
 
     const user = await createUser({ ...userData, password }, 'customer');
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        userType: 'customer' 
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    // Create session
+    req.session.userId = user.id;
+    req.session.userType = 'customer';
+    req.session.email = user.email;
+    req.session.isNewSession = true;
+    req.session.loginTime = new Date().toISOString();
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
       data: {
-        user,
-        token
+        user
       }
     });
 
@@ -134,6 +130,13 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    // Create session
+    req.session.userId = authResult.data.user.id;
+    req.session.userType = authResult.data.user.user_type;
+    req.session.email = authResult.data.user.email;
+    req.session.isNewSession = true;
+    req.session.loginTime = new Date().toISOString();
+
     res.json({
       success: true,
       message: authResult.message,
@@ -149,16 +152,27 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout - User logout (client-side token removal)
+// POST /api/auth/logout - User logout (destroy session)
 router.post('/logout', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Logout successful. Please remove the token from client storage.'
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Session destruction error:', err);
+      return res.status(500).json({
+        success: false,
+        message: 'Error during logout'
+      });
+    }
+    
+    res.clearCookie('connect.sid');
+    res.json({
+      success: true,
+      message: 'Logout successful'
+    });
   });
 });
 
 // GET /api/auth/profile - Get user profile (requires authentication)
-router.get('/profile', authenticateToken(), async (req, res) => {
+router.get('/profile', authenticateSession(), async (req, res) => {
   try {
     // The authenticateToken middleware already fetches fresh user data
     res.json({
@@ -178,7 +192,7 @@ router.get('/profile', authenticateToken(), async (req, res) => {
 });
 
 // PUT /api/auth/profile - Update user profile
-router.put('/profile', authenticateToken(), async (req, res) => {
+router.put('/profile', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const userType = req.user.userType;
@@ -277,24 +291,19 @@ router.post('/admin/login', async (req, res) => {
       });
     }
 
-    // Generate JWT token with admin flag
-    const token = jwt.sign(
-      { 
-        userId: authResult.data.user.id, 
-        email: authResult.data.user.email, 
-        userType: 'admin',
-        isAdmin: true
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    // Create admin session
+    req.session.userId = authResult.data.user.id;
+    req.session.userType = 'admin';
+    req.session.email = authResult.data.user.email;
+    req.session.isAdmin = true;
+    req.session.isNewSession = true;
+    req.session.loginTime = new Date().toISOString();
 
     res.json({
       success: true,
       message: 'Admin login successful',
       data: {
-        user: authResult.data.user,
-        token
+        user: authResult.data.user
       }
     });
 
@@ -364,23 +373,18 @@ router.post('/store-owner/register', async (req, res) => {
 
     const user = await createUser({ ...userData, password }, 'store_owner');
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email, 
-        userType: 'store_owner' 
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    // Create session
+    req.session.userId = user.id;
+    req.session.userType = 'store_owner';
+    req.session.email = user.email;
+    req.session.isNewSession = true;
+    req.session.loginTime = new Date().toISOString();
 
     res.status(201).json({
       success: true,
       message: 'Store owner registered successfully',
       data: {
-        user,
-        token
+        user
       }
     });
 
@@ -423,6 +427,13 @@ router.post('/store-owner/login', async (req, res) => {
       });
     }
 
+    // Create session
+    req.session.userId = authResult.data.user.id;
+    req.session.userType = 'store_owner';
+    req.session.email = authResult.data.user.email;
+    req.session.isNewSession = true;
+    req.session.loginTime = new Date().toISOString();
+
     res.json({
       success: true,
       message: 'Store owner login successful',
@@ -438,8 +449,131 @@ router.post('/store-owner/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/sessions - Get user sessions
+router.get('/sessions', authenticateSession(), async (req, res) => {
+  try {
+    const { userId, userType } = req.user;
+    const sessions = await getUserSessions(userId, userType);
+
+    res.json({
+      success: true,
+      data: {
+        sessions: sessions.map(session => ({
+          sessionId: session.sessionId,
+          expiresAt: session.expiresAt,
+          lastActivity: session.sessionData.lastActivity,
+          loginTime: session.sessionData.loginTime,
+          lastIp: session.sessionData.lastIp,
+          lastUserAgent: session.sessionData.lastUserAgent
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching sessions:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// DELETE /api/auth/sessions - Destroy all user sessions (except current)
+router.delete('/sessions', authenticateSession(), async (req, res) => {
+  try {
+    const { userId, userType } = req.user;
+    const currentSessionId = req.sessionID;
+
+    // Get all sessions
+    const sessions = await getUserSessions(userId, userType);
+    
+    // Destroy all sessions except current one
+    let destroyedCount = 0;
+    for (const session of sessions) {
+      if (session.sessionId !== currentSessionId) {
+        const destroyed = await destroySession(session.sessionId);
+        if (destroyed) destroyedCount++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `${destroyedCount} sessions destroyed`,
+      data: {
+        destroyedSessions: destroyedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error destroying sessions:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// DELETE /api/auth/sessions/:sessionId - Destroy specific session
+router.delete('/sessions/:sessionId', authenticateSession(), async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { userId, userType } = req.user;
+
+    // Verify the session belongs to the current user
+    const userSessions = await getUserSessions(userId, userType);
+    const sessionExists = userSessions.some(s => s.sessionId === sessionId);
+
+    if (!sessionExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found or does not belong to you'
+      });
+    }
+
+    const destroyed = await destroySession(sessionId);
+
+    if (destroyed) {
+      res.json({
+        success: true,
+        message: 'Session destroyed successfully'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to destroy session'
+      });
+    }
+  } catch (error) {
+    console.error('Error destroying session:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// GET /api/auth/admin/session-stats - Get session statistics (admin only)
+router.get('/admin/session-stats', authenticateSession('admin'), async (req, res) => {
+  try {
+    const stats = await getSessionStats();
+
+    res.json({
+      success: true,
+      data: {
+        stats
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching session stats:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
 // Export middleware functions for use in other routes using the utils
-router.authenticateToken = authenticateToken;
-router.authenticateAdmin = authenticateToken('admin');
+const authenticateAdmin = authenticateSession('admin');
 
 module.exports = router;
+module.exports.authenticateSession = authenticateSession;
+module.exports.authenticateToken = authenticateSession; // Backward compatibility
+module.exports.authenticateAdmin = authenticateAdmin;

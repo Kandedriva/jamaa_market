@@ -1,11 +1,11 @@
 const express = require('express');
 const { pool } = require('../config/database');
-const { authenticateToken } = require('./auth');
+const { authenticateSession } = require('./auth');
 
 const router = express.Router();
 
 // GET user notifications
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const { type, unread } = req.query;
@@ -54,7 +54,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // POST mark notification as read
-router.post('/:id/mark-read', authenticateToken, async (req, res) => {
+router.post('/:id/mark-read', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const notificationId = req.params.id;
@@ -86,7 +86,7 @@ router.post('/:id/mark-read', authenticateToken, async (req, res) => {
 });
 
 // POST mark all notifications as read
-router.post('/mark-all-read', authenticateToken, async (req, res) => {
+router.post('/mark-all-read', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
 
@@ -110,7 +110,7 @@ router.post('/mark-all-read', authenticateToken, async (req, res) => {
 });
 
 // DELETE notification
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateSession(), async (req, res) => {
   try {
     const userId = req.user.userId;
     const notificationId = req.params.id;
@@ -142,7 +142,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // POST create notification (internal use for system notifications)
-router.post('/create', authenticateToken, async (req, res) => {
+router.post('/create', authenticateSession(), async (req, res) => {
   try {
     const { userId, title, message, type, actionLink } = req.body;
 

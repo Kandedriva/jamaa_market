@@ -1,18 +1,14 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
-const { authenticateToken } = require('../utils/auth');
+const { authenticateSession } = require('../utils/auth');
 
 const router = express.Router();
-
-// JWT secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_here';
 
 // Middleware to authenticate store owners and get store info
 function authenticateStoreOwner(req, res, next) {
   // First use the standard authentication
-  authenticateToken('store_owner')(req, res, async (err) => {
+  authenticateSession('store_owner')(req, res, async (err) => {
     if (err) return;
     
     try {

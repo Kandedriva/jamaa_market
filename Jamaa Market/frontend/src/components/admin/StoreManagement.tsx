@@ -34,11 +34,8 @@ const StoreManagement: React.FC = () => {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('afrozy-market-token');
       const response = await axios.get(`${API_BASE_URL}/admin/stores`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        withCredentials: true
       });
       
       if (response.data.success) {
@@ -57,15 +54,11 @@ const StoreManagement: React.FC = () => {
   const updateStoreStatus = async (storeId: number, newStatus: 'approved' | 'pending' | 'suspended') => {
     try {
       setUpdating(storeId);
-      const token = localStorage.getItem('afrozy-market-token');
-      
       const response = await axios.put(
         `${API_BASE_URL}/admin/stores/${storeId}/status`, 
         { status: newStatus },
         {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          withCredentials: true
         }
       );
       

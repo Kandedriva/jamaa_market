@@ -38,12 +38,14 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister, onN
     setError('');
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, formData);
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, formData, {
+        withCredentials: true
+      });
       
       if (response.data.success) {
-        const { user, token } = response.data.data;
+        const { user } = response.data.data;
         
-        onLoginSuccess(user, token);
+        onLoginSuccess(user, 'session');
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Login failed. Please try again.';

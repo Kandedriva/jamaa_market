@@ -52,13 +52,8 @@ const helmetOptions = {
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    // In production, be more strict about origins
-    if (process.env.NODE_ENV === 'production' && !origin) {
-      return callback(new Error('Not allowed by CORS - no origin'));
-    }
-    
-    // Allow requests with no origin in development (like mobile apps or curl requests)
-    if (!origin && process.env.NODE_ENV !== 'production') return callback(null, true);
+    // Allow requests with no origin in development and for health checks
+    if (!origin) return callback(null, true);
     
     const allowedOrigins = [
       'http://localhost:3000',

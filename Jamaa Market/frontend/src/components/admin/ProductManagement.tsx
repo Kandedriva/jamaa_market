@@ -50,7 +50,9 @@ const ProductManagement: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/products`);
+      const response = await axios.get(`${API_BASE_URL}/products`, {
+        withCredentials: true
+      });
       if (response.data.success) {
         setProducts(response.data.data);
       }
@@ -71,9 +73,13 @@ const ProductManagement: React.FC = () => {
       };
 
       if (editingProduct) {
-        await axios.put(`${API_BASE_URL}/admin/products/${editingProduct.id}`, productData);
+        await axios.put(`${API_BASE_URL}/admin/products/${editingProduct.id}`, productData, {
+          withCredentials: true
+        });
       } else {
-        await axios.post(`${API_BASE_URL}/admin/products`, productData);
+        await axios.post(`${API_BASE_URL}/admin/products`, productData, {
+          withCredentials: true
+        });
       }
 
       await fetchProducts();
@@ -100,7 +106,9 @@ const ProductManagement: React.FC = () => {
   const handleDelete = async (productId: number) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        await axios.delete(`${API_BASE_URL}/admin/products/${productId}`);
+        await axios.delete(`${API_BASE_URL}/admin/products/${productId}`, {
+          withCredentials: true
+        });
         await fetchProducts();
       } catch (error) {
         console.error('Error deleting product:', error);

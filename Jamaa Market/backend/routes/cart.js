@@ -1,16 +1,14 @@
 const express = require('express');
 const { pool } = require('../config/database');
-const { authenticateToken } = require('./auth');
+const { authenticateSession } = require('./auth');
 
 const router = express.Router();
 
 // Middleware to extract user ID or session ID
 const extractUserOrSession = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  
-  if (authHeader) {
-    // User is authenticated, use authenticateToken middleware
-    authenticateToken(req, res, (err) => {
+  if (req.session && req.session.userId) {
+    // User is authenticated via session
+    authenticateSession()(req, res, (err) => {
       if (err) {
         return next(err);
       }
@@ -30,7 +28,7 @@ const extractUserOrSession = (req, res, next) => {
     } else {
       return res.status(400).json({
         success: false,
-        message: 'Either authentication token or session ID is required'
+        message: 'Either authentication session or session ID is required'
       });
     }
   }
@@ -327,7 +325,7 @@ router.delete('/clear', extractUserOrSession, async (req, res) => {
 });
 
 // POST /api/cart/merge - Merge guest cart with user cart on login
-router.post('/merge', authenticateToken, async (req, res) => {
+router.post('/merge', authenticateSession(), async (req, res) => {
   try {
     const { sessionId } = req.body;
 

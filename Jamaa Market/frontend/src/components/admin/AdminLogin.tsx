@@ -32,11 +32,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
       const response = await axios.post(`${API_BASE_URL}/auth/admin/login`, {
         email: credentials.email,
         password: credentials.password
+      }, {
+        withCredentials: true // Enable session cookies
       });
 
       if (response.data.success) {
-        const { user, token } = response.data.data;
-        onLogin(user, token);
+        const { user } = response.data.data;
+        onLogin(user, 'session'); // Pass 'session' as a placeholder since we're using sessions
       } else {
         setError(response.data.message || 'Login failed');
       }

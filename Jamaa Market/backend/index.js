@@ -3,11 +3,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+const session = require('express-session');
 require('dotenv').config();
 
 const { connectDB, closePool } = require('./config/database');
 const logger = require('./config/logger');
 const { corsOptions, helmetOptions, generalLimiter } = require('./config/security');
+const sessionConfig = require('./config/session');
+const { validateSession, trackSessionActivity } = require('./middleware/sessionValidation');
 const createTables = require('./scripts/createTables');
 const createCartTable = require('./scripts/createCartTable');
 const createStoresTable = require('./scripts/createStoresTable');
@@ -26,6 +29,17 @@ app.use(helmet(helmetOptions));
 app.use(cors(corsOptions));
 app.use(compression());
 app.use(generalLimiter);
+
+// Session middleware
+app.use(session(sessionConfig));
+
+// Session validation and activity tracking
+app.use(validateSession({
+  maxSessions: 5,
+  enforceLimit: true,
+  checkUserStatus: true
+}));
+app.use(trackSessionActivity());
 
 // Request logging
 const morganFormat = process.env.NODE_ENV === 'production' ? 'combined' : 'dev';
