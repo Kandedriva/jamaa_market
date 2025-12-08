@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Set up axios defaults
 axios.defaults.withCredentials = true;
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
 
 // Add request interceptor for consistent error handling
 axios.interceptors.response.use(

@@ -43,7 +43,7 @@ const helmetOptions = {
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "http:"],
       scriptSrc: ["'self'"],
-      connectSrc: ["'self'", "http://localhost:3001", "ws://localhost:3000"],
+      connectSrc: ["'self'", "https://localhost:3001", "wss://localhost:3000"],
     },
   },
   crossOriginEmbedderPolicy: false,
@@ -56,6 +56,11 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
+      'https://localhost:3000',
+      'https://localhost:3001',
+      'https://127.0.0.1:3000',
+      'https://127.0.0.1:3001',
+      // Keep HTTP for local development fallback
       'http://localhost:3000',
       'http://localhost:3001',
       'http://127.0.0.1:3000',

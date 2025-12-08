@@ -101,7 +101,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           endpoint = '/images/upload';
       }
 
-      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+      const baseUrl = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
       const response = await axios.post(`${baseUrl}${endpoint}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'

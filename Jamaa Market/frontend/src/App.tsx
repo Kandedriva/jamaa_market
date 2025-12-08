@@ -43,7 +43,7 @@ function AppContent() {
           
           // Validate session by making a test request
           try {
-            const response = await fetch('http://localhost:3001/api/auth/profile', {
+            const response = await fetch('https://localhost:3001/api/auth/profile', {
               credentials: 'include' // Include session cookies
             });
             
