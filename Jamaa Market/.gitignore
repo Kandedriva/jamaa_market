@@ -41,3 +41,4 @@ pids
 # Optional npm cache directory
 .npmbackend/*.log
 backend/server.log
+.env.production

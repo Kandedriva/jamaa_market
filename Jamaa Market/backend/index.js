@@ -15,6 +15,7 @@ const createTables = require('./scripts/createTables');
 const createCartTable = require('./scripts/createCartTable');
 const createStoresTable = require('./scripts/createStoresTable');
 const createOrdersTable = require('./scripts/createOrdersTable');
+const updateOrdersTableForCheckout = require('./scripts/updateOrdersTableForCheckout');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -159,6 +160,10 @@ app.use('/api/store', storeRoutes);
 const imageRoutes = require('./routes/images');
 app.use('/api/images', imageRoutes);
 
+// Checkout routes
+const checkoutRoutes = require('./routes/checkout');
+app.use('/api/checkout', checkoutRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', {
@@ -202,6 +207,7 @@ const startServer = async () => {
     await createCartTable();
     await createStoresTable();
     await createOrdersTable();
+    await updateOrdersTableForCheckout();
     logger.info('Database tables initialized');
 
     // Start server
