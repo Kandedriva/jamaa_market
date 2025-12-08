@@ -16,6 +16,7 @@ const createCartTable = require('./scripts/createCartTable');
 const createStoresTable = require('./scripts/createStoresTable');
 const createOrdersTable = require('./scripts/createOrdersTable');
 const updateOrdersTableForCheckout = require('./scripts/updateOrdersTableForCheckout');
+const addDeliveryFieldsToOrders = require('./scripts/addDeliveryFieldsToOrders');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -208,6 +209,7 @@ const startServer = async () => {
     await createStoresTable();
     await createOrdersTable();
     await updateOrdersTableForCheckout();
+    await addDeliveryFieldsToOrders();
     logger.info('Database tables initialized');
 
     // Start server

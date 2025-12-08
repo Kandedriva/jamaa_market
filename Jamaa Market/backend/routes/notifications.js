@@ -13,9 +13,9 @@ router.get('/', authenticateSession(), async (req, res) => {
     let query = `
       SELECT id, title, message, type, is_read, action_link, created_at
       FROM notifications 
-      WHERE user_id = $1
+      WHERE user_id = $1 AND user_type = $2
     `;
-    const queryParams = [userId];
+    const queryParams = [userId, req.user.userType];
 
     // Add filters
     if (type) {
@@ -60,8 +60,8 @@ router.post('/:id/mark-read', authenticateSession(), async (req, res) => {
     const notificationId = req.params.id;
 
     const result = await pool.query(
-      'UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2 RETURNING id',
-      [notificationId, userId]
+      'UPDATE notifications SET is_read = true WHERE id = $1 AND user_id = $2 AND user_type = $3 RETURNING id',
+      [notificationId, userId, req.user.userType]
     );
 
     if (result.rows.length === 0) {
@@ -91,8 +91,8 @@ router.post('/mark-all-read', authenticateSession(), async (req, res) => {
     const userId = req.user.userId;
 
     await pool.query(
-      'UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false',
-      [userId]
+      'UPDATE notifications SET is_read = true WHERE user_id = $1 AND user_type = $2 AND is_read = false',
+      [userId, req.user.userType]
     );
 
     res.json({
@@ -116,8 +116,8 @@ router.delete('/:id', authenticateSession(), async (req, res) => {
     const notificationId = req.params.id;
 
     const result = await pool.query(
-      'DELETE FROM notifications WHERE id = $1 AND user_id = $2 RETURNING id',
-      [notificationId, userId]
+      'DELETE FROM notifications WHERE id = $1 AND user_id = $2 AND user_type = $3 RETURNING id',
+      [notificationId, userId, req.user.userType]
     );
 
     if (result.rows.length === 0) {
@@ -144,21 +144,21 @@ router.delete('/:id', authenticateSession(), async (req, res) => {
 // POST create notification (internal use for system notifications)
 router.post('/create', authenticateSession(), async (req, res) => {
   try {
-    const { userId, title, message, type, actionLink } = req.body;
+    const { userId, userType, title, message, type, actionLink } = req.body;
 
     // Validate required fields
-    if (!userId || !title || !message || !type) {
+    if (!userId || !userType || !title || !message || !type) {
       return res.status(400).json({
         success: false,
-        message: 'userId, title, message, and type are required'
+        message: 'userId, userType, title, message, and type are required'
       });
     }
 
     const result = await pool.query(
-      `INSERT INTO notifications (user_id, title, message, type, action_link, is_read, created_at)
-       VALUES ($1, $2, $3, $4, $5, false, CURRENT_TIMESTAMP)
+      `INSERT INTO notifications (user_id, user_type, title, message, type, action_link, is_read, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [userId, title, message, type, actionLink || null]
+      [userId, userType, title, message, type, actionLink || null]
     );
 
     res.status(201).json({
@@ -183,4 +183,19 @@ router.post('/create', authenticateSession(), async (req, res) => {
   }
 });
 
+// Helper function to create a notification (used internally by other routes)
+async function createNotification(userId, userType, title, message, type, actionLink = null) {
+  try {
+    await pool.query(
+      `INSERT INTO notifications (user_id, user_type, title, message, type, action_link, is_read, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, CURRENT_TIMESTAMP)`,
+      [userId, userType, title, message, type, actionLink]
+    );
+    console.log(`Notification created for user ${userId} (${userType}): ${title}`);
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
+}
+
 module.exports = router;
+module.exports.createNotification = createNotification;

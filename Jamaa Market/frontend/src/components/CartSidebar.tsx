@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import CheckoutModal from './CheckoutModal';
 
 interface User {
   id: number;
@@ -19,6 +20,7 @@ interface CartSidebarProps {
 const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, user, storeId }) => {
   const { state, updateQuantity, removeFromCart } = useCart();
   const [showCheckout, setShowCheckout] = useState(false);
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [checkoutData, setCheckoutData] = useState({
     fullName: user?.full_name || '',
     email: user?.email || '',
@@ -305,7 +307,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, user, storeI
                 <span className="text-lg font-bold text-gray-900">${cartTotal.toFixed(2)}</span>
               </div>
               <button
-                onClick={() => user ? setShowCheckout(true) : alert('Please login to checkout')}
+                onClick={() => setIsCheckoutModalOpen(true)}
                 className="w-full rounded-md bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 Proceed to Checkout
@@ -314,6 +316,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, user, storeI
           )}
         </div>
       </div>
+
+      {/* Checkout Modal */}
+      <CheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        onSuccess={() => {
+          setIsCheckoutModalOpen(false);
+          onClose();
+        }}
+      />
     </div>
   );
 };

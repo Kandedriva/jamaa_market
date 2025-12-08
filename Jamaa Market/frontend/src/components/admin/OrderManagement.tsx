@@ -1,34 +1,39 @@
 import React, { useState, useEffect } from 'react';
+import axios from '../../utils/axios';
 
 interface OrderItem {
   id: number;
-  product_id: number;
-  product_name: string;
-  product_image: string;
-  quantity: number;
+  name: string;
   price: number;
-  total: number;
+  quantity: number;
+  image?: string;
+}
+
+interface DeliveryInfo {
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  instructions?: string;
 }
 
 interface Order {
   id: number;
-  customer_id: number;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  shipping_address: string;
+  customerId: number | null;
+  customerUsername: string;
+  customerEmail: string;
   status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
-  payment_method: string;
-  subtotal: number;
-  shipping_cost: number;
-  tax: number;
-  total_amount: number;
-  order_date: string;
-  delivery_date?: string;
-  tracking_number?: string;
-  notes?: string;
+  paymentMethod: string;
+  totalAmount: number;
+  orderDate: string;
+  updatedAt: string;
+  deliveryInfo: DeliveryInfo;
   items: OrderItem[];
+  paymentIntentId: string;
 }
 
 const OrderManagement: React.FC = () => {
@@ -42,99 +47,36 @@ const OrderManagement: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Refetch when filters change
+  useEffect(() => {
+    fetchOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, searchTerm]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      // Since we don't have an orders table yet, we'll use mock data
-      const mockOrders: Order[] = [
-        {
-          id: 1,
-          customer_id: 1,
-          customer_name: 'John Doe',
-          customer_email: 'john@example.com',
-          customer_phone: '+1234567890',
-          shipping_address: '123 Main St, City, State 12345',
-          status: 'shipped',
-          payment_status: 'paid',
-          payment_method: 'Credit Card',
-          subtotal: 79.99,
-          shipping_cost: 10.00,
-          tax: 7.20,
-          total_amount: 97.19,
-          order_date: '2025-11-01',
-          tracking_number: 'TRK123456789',
-          items: [
-            {
-              id: 1,
-              product_id: 1,
-              product_name: 'Premium Wireless Headphones',
-              product_image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
-              quantity: 1,
-              price: 79.99,
-              total: 79.99
-            }
-          ]
-        },
-        {
-          id: 2,
-          customer_id: 2,
-          customer_name: 'Jane Smith',
-          customer_email: 'jane@example.com',
-          customer_phone: '+1234567891',
-          shipping_address: '456 Oak Ave, City, State 12345',
-          status: 'processing',
-          payment_status: 'paid',
-          payment_method: 'PayPal',
-          subtotal: 159.99,
-          shipping_cost: 0.00,
-          tax: 14.40,
-          total_amount: 174.39,
-          order_date: '2025-11-02',
-          items: [
-            {
-              id: 2,
-              product_id: 2,
-              product_name: 'Smart Fitness Tracker',
-              product_image: 'https://images.unsplash.com/photo-1575311373937-040b8e1fd5b6?w=400',
-              quantity: 1,
-              price: 159.99,
-              total: 159.99
-            }
-          ]
-        },
-        {
-          id: 3,
-          customer_id: 3,
-          customer_name: 'Mike Johnson',
-          customer_email: 'mike@example.com',
-          customer_phone: '+1234567892',
-          shipping_address: '789 Pine St, City, State 12345',
-          status: 'pending',
-          payment_status: 'pending',
-          payment_method: 'Credit Card',
-          subtotal: 45.50,
-          shipping_cost: 5.00,
-          tax: 4.55,
-          total_amount: 55.05,
-          order_date: '2025-11-03',
-          items: [
-            {
-              id: 3,
-              product_id: 3,
-              product_name: 'Smartphone Stand',
-              product_image: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=400',
-              quantity: 1,
-              price: 45.50,
-              total: 45.50
-            }
-          ]
+      const response = await axios.get('/orders/admin/all', {
+        params: {
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          search: searchTerm || undefined,
+          page: 1,
+          limit: 100
         }
-      ];
-      setOrders(mockOrders);
+      });
+
+      if (response.data.success) {
+        setOrders(response.data.data.orders);
+      } else {
+        console.error('Error fetching orders:', response.data.message);
+      }
     } catch (error) {
       console.error('Error fetching orders:', error);
+      // Fallback to empty array if there's an error
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -142,57 +84,47 @@ const OrderManagement: React.FC = () => {
 
   const handleStatusUpdate = async (orderId: number, newStatus: Order['status']) => {
     try {
-      // In a real app, this would make an API call
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
+      console.log(`Updating order ${orderId} to status ${newStatus}`);
       
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, status: newStatus });
+      const response = await axios.put(`/orders/admin/${orderId}/status`, {
+        status: newStatus
+      });
+
+      console.log('Status update response:', response.data);
+
+      if (response.data.success) {
+        // Update local state immediately
+        setOrders(prevOrders => prevOrders.map(order => 
+          order.id === orderId ? { ...order, status: newStatus } : order
+        ));
+        
+        if (selectedOrder && selectedOrder.id === orderId) {
+          setSelectedOrder({ ...selectedOrder, status: newStatus });
+        }
+        
+        console.log(`Order ${orderId} status updated successfully to ${newStatus}`);
+        
+        // Refetch to ensure data consistency but only if current filter would still show this order
+        if (statusFilter === 'all' || statusFilter === newStatus) {
+          setTimeout(() => fetchOrders(), 500); // Small delay to ensure backend is updated
+        }
+      } else {
+        console.error('Error updating order status:', response.data.message);
+        alert(`Failed to update order status: ${response.data.message}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating order status:', error);
+      alert(`Failed to update order status: ${error.response?.data?.message || error.message}`);
+      
+      // Revert the local state change on error by refetching
+      fetchOrders();
     }
   };
 
-  const handlePaymentStatusUpdate = async (orderId: number, newPaymentStatus: Order['payment_status']) => {
-    try {
-      // In a real app, this would make an API call
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, payment_status: newPaymentStatus } : order
-      ));
-      
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, payment_status: newPaymentStatus });
-      }
-    } catch (error) {
-      console.error('Error updating payment status:', error);
-    }
-  };
-
-  const handleTrackingNumberUpdate = async (orderId: number, trackingNumber: string) => {
-    try {
-      // In a real app, this would make an API call
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, tracking_number: trackingNumber } : order
-      ));
-      
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, tracking_number: trackingNumber });
-      }
-    } catch (error) {
-      console.error('Error updating tracking number:', error);
-    }
-  };
 
   const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.id.toString().includes(searchTerm);
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    
     let matchesDate = true;
-    const orderDate = new Date(order.order_date);
+    const orderDate = new Date(order.orderDate);
     const now = new Date();
     
     switch (dateRange) {
@@ -209,7 +141,7 @@ const OrderManagement: React.FC = () => {
         break;
     }
     
-    return matchesSearch && matchesStatus && matchesDate;
+    return matchesDate; // Search and status filtering is done on the backend
   });
 
   const getStatusColor = (status: Order['status']) => {
@@ -224,15 +156,6 @@ const OrderManagement: React.FC = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  const getPaymentStatusColor = (status: Order['payment_status']) => {
-    const colors = {
-      pending: 'bg-yellow-100 text-yellow-800',
-      paid: 'bg-green-100 text-green-800',
-      failed: 'bg-red-100 text-red-800',
-      refunded: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
 
   if (loading) {
     return (
@@ -298,7 +221,7 @@ const OrderManagement: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Revenue</p>
-              <p className="text-3xl font-bold text-green-600">${orders.reduce((sum, order) => sum + order.total_amount, 0).toFixed(2)}</p>
+              <p className="text-3xl font-bold text-green-600">${orders.reduce((sum, order) => sum + order.totalAmount, 0).toFixed(2)}</p>
             </div>
             <div className="p-3 rounded-full bg-green-100">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -374,7 +297,7 @@ const OrderManagement: React.FC = () => {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Payment
+                  Payment Method
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
@@ -395,8 +318,9 @@ const OrderManagement: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{order.customer_name}</div>
-                      <div className="text-sm text-gray-500">{order.customer_email}</div>
+                      <div className="text-sm font-medium text-gray-900">{order.deliveryInfo.fullName}</div>
+                      <div className="text-sm text-gray-500">{order.deliveryInfo.email}</div>
+                      <div className="text-sm text-gray-500">{order.customerUsername !== 'Guest' ? `@${order.customerUsername}` : 'Guest Customer'}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -414,15 +338,15 @@ const OrderManagement: React.FC = () => {
                     </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPaymentStatusColor(order.payment_status)}`}>
-                      {order.payment_status}
+                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                      {order.paymentMethod || 'Stripe'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${order.total_amount.toFixed(2)}
+                    ${order.totalAmount.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {order.order_date}
+                    {new Date(order.orderDate).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
@@ -463,10 +387,24 @@ const OrderManagement: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Customer Information</h3>
                 <div className="space-y-2">
-                  <p><span className="font-medium">Name:</span> {selectedOrder.customer_name}</p>
-                  <p><span className="font-medium">Email:</span> {selectedOrder.customer_email}</p>
-                  <p><span className="font-medium">Phone:</span> {selectedOrder.customer_phone}</p>
-                  <p><span className="font-medium">Address:</span> {selectedOrder.shipping_address}</p>
+                  <p><span className="font-medium">Account:</span> {selectedOrder.customerUsername !== 'Guest' ? `@${selectedOrder.customerUsername}` : 'Guest Customer'}</p>
+                  <p><span className="font-medium">Customer ID:</span> {selectedOrder.customerId || 'N/A'}</p>
+                </div>
+              </div>
+
+              {/* Delivery Information */}
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Delivery Information</h3>
+                <div className="space-y-2">
+                  <p><span className="font-medium">Name:</span> {selectedOrder.deliveryInfo.fullName}</p>
+                  <p><span className="font-medium">Email:</span> {selectedOrder.deliveryInfo.email}</p>
+                  <p><span className="font-medium">Phone:</span> {selectedOrder.deliveryInfo.phone}</p>
+                  <p><span className="font-medium">Address:</span> {selectedOrder.deliveryInfo.address}</p>
+                  <p><span className="font-medium">City:</span> {selectedOrder.deliveryInfo.city}, {selectedOrder.deliveryInfo.state} {selectedOrder.deliveryInfo.zipCode}</p>
+                  <p><span className="font-medium">Country:</span> {selectedOrder.deliveryInfo.country}</p>
+                  {selectedOrder.deliveryInfo.instructions && (
+                    <p><span className="font-medium">Instructions:</span> {selectedOrder.deliveryInfo.instructions}</p>
+                  )}
                 </div>
               </div>
 
@@ -474,8 +412,9 @@ const OrderManagement: React.FC = () => {
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Information</h3>
                 <div className="space-y-2">
-                  <p><span className="font-medium">Order Date:</span> {selectedOrder.order_date}</p>
-                  <p><span className="font-medium">Payment Method:</span> {selectedOrder.payment_method}</p>
+                  <p><span className="font-medium">Order Date:</span> {new Date(selectedOrder.orderDate).toLocaleDateString()}</p>
+                  <p><span className="font-medium">Payment Method:</span> {selectedOrder.paymentMethod || 'Stripe'}</p>
+                  <p><span className="font-medium">Payment ID:</span> {selectedOrder.paymentIntentId}</p>
                   <div className="flex items-center space-x-2">
                     <span className="font-medium">Status:</span>
                     <select
@@ -490,29 +429,6 @@ const OrderManagement: React.FC = () => {
                       <option value="delivered">Delivered</option>
                       <option value="cancelled">Cancelled</option>
                     </select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium">Payment Status:</span>
-                    <select
-                      value={selectedOrder.payment_status}
-                      onChange={(e) => handlePaymentStatusUpdate(selectedOrder.id, e.target.value as Order['payment_status'])}
-                      className={`text-xs font-semibold rounded-full px-2 py-1 border-0 ${getPaymentStatusColor(selectedOrder.payment_status)}`}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="paid">Paid</option>
-                      <option value="failed">Failed</option>
-                      <option value="refunded">Refunded</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium">Tracking Number:</span>
-                    <input
-                      type="text"
-                      value={selectedOrder.tracking_number || ''}
-                      onChange={(e) => handleTrackingNumberUpdate(selectedOrder.id, e.target.value)}
-                      placeholder="Enter tracking number"
-                      className="border border-gray-300 rounded px-2 py-1 text-sm"
-                    />
                   </div>
                 </div>
               </div>
@@ -536,13 +452,13 @@ const OrderManagement: React.FC = () => {
                       <tr key={item.id} className="border-t border-gray-200">
                         <td className="px-4 py-2">
                           <div className="flex items-center space-x-3">
-                            <img src={item.product_image} alt={item.product_name} className="w-12 h-12 rounded object-cover" />
-                            <span className="text-sm font-medium">{item.product_name}</span>
+                            {item.image && <img src={item.image} alt={item.name} className="w-12 h-12 rounded object-cover" />}
+                            <span className="text-sm font-medium">{item.name}</span>
                           </div>
                         </td>
                         <td className="px-4 py-2 text-sm">{item.quantity}</td>
                         <td className="px-4 py-2 text-sm">${item.price.toFixed(2)}</td>
-                        <td className="px-4 py-2 text-sm font-medium">${item.total.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-sm font-medium">${(item.price * item.quantity).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -555,20 +471,12 @@ const OrderManagement: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Order Summary</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>${selectedOrder.subtotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Shipping:</span>
-                  <span>${selectedOrder.shipping_cost.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax:</span>
-                  <span>${selectedOrder.tax.toFixed(2)}</span>
+                  <span>Items ({selectedOrder.items.length}):</span>
+                  <span>${selectedOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(2)}</span>
                 </div>
                 <div className="border-t border-gray-300 pt-2 flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>${selectedOrder.total_amount.toFixed(2)}</span>
+                  <span>Total Paid:</span>
+                  <span>${selectedOrder.totalAmount.toFixed(2)}</span>
                 </div>
               </div>
             </div>

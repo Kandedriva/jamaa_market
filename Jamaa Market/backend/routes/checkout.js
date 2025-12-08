@@ -74,6 +74,26 @@ router.post('/process', extractUserOrSession, async (req, res) => {
   const client = await pool.connect();
   
   try {
+    const { deliveryInfo } = req.body;
+    
+    // Validate delivery information
+    if (!deliveryInfo) {
+      return res.status(400).json({
+        success: false,
+        message: 'Delivery information is required'
+      });
+    }
+    
+    const requiredFields = ['fullName', 'email', 'phone', 'address', 'city', 'state', 'zipCode'];
+    for (const field of requiredFields) {
+      if (!deliveryInfo[field] || !deliveryInfo[field].trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `${field} is required for delivery`
+        });
+      }
+    }
+
     await client.query('BEGIN');
     
     // Get cart items
@@ -123,24 +143,30 @@ router.post('/process', extractUserOrSession, async (req, res) => {
       return total + (parseFloat(item.price) * item.quantity);
     }, 0);
 
-    // Create payment intent
+    // Create payment intent with delivery info in metadata
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalAmount * 100), // Convert to cents
       currency: 'usd',
       metadata: {
         userId: req.userId || 'guest',
         sessionId: req.sessionId || '',
-        orderType: 'cart_checkout'
+        orderType: 'cart_checkout',
+        customerName: deliveryInfo.fullName,
+        customerEmail: deliveryInfo.email
       },
       payment_method_types: ['card'], // Only allow card payments
     });
 
-    // Create order record
+    // Create order record with delivery information
     const orderInsertQuery = `
       INSERT INTO orders (
         user_id, session_id, total, total_amount, status, 
-        payment_intent_id, items, payment_method, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+        payment_intent_id, items, payment_method, 
+        delivery_name, delivery_email, delivery_phone, 
+        delivery_address, delivery_city, delivery_state, 
+        delivery_zip, delivery_country, delivery_instructions,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
       RETURNING id, created_at
     `;
 
@@ -152,7 +178,16 @@ router.post('/process', extractUserOrSession, async (req, res) => {
       'pending',
       paymentIntent.id,
       JSON.stringify(cartItems),
-      'stripe'  // payment_method
+      'stripe',  // payment_method
+      deliveryInfo.fullName,
+      deliveryInfo.email,
+      deliveryInfo.phone,
+      deliveryInfo.address,
+      deliveryInfo.city,
+      deliveryInfo.state,
+      deliveryInfo.zipCode,
+      deliveryInfo.country || 'United States',
+      deliveryInfo.deliveryInstructions || null
     ]);
 
     const orderId = orderResult.rows[0].id;
@@ -286,7 +321,10 @@ router.get('/session/:paymentIntentId', extractUserOrSession, async (req, res) =
 
     // Get order details
     const orderQuery = `
-      SELECT id, total_amount, status, items, created_at
+      SELECT id, total_amount, status, items, created_at,
+             delivery_name, delivery_email, delivery_phone,
+             delivery_address, delivery_city, delivery_state,
+             delivery_zip, delivery_country, delivery_instructions
       FROM orders
       WHERE payment_intent_id = $1
       AND (user_id = $2 OR session_id = $3)
@@ -314,7 +352,18 @@ router.get('/session/:paymentIntentId', extractUserOrSession, async (req, res) =
         totalAmount: order.total_amount,
         status: order.status,
         items: order.items,
-        createdAt: order.created_at
+        createdAt: order.created_at,
+        deliveryInfo: {
+          fullName: order.delivery_name,
+          email: order.delivery_email,
+          phone: order.delivery_phone,
+          address: order.delivery_address,
+          city: order.delivery_city,
+          state: order.delivery_state,
+          zipCode: order.delivery_zip,
+          country: order.delivery_country,
+          deliveryInstructions: order.delivery_instructions
+        }
       }
     });
 

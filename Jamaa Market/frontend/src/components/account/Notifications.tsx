@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from '../../utils/axios';
 
 interface User {
   id: number;
@@ -24,80 +25,125 @@ interface Notification {
 }
 
 const Notifications: React.FC<NotificationsProps> = ({ user }) => {
-  // Mock notification data
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: 1,
-      title: 'Order Confirmed',
-      message: 'Your order #AF2024001 has been confirmed and is being processed.',
-      type: 'order',
-      isRead: false,
-      createdAt: '2024-11-07T10:30:00Z',
-      actionLink: '/account/orders/AF2024001'
-    },
-    {
-      id: 2,
-      title: 'Welcome to Afrozy Market!',
-      message: 'Thank you for joining our marketplace. Explore our wide range of products and enjoy shopping!',
-      type: 'account',
-      isRead: false,
-      createdAt: '2024-11-06T15:45:00Z'
-    },
-    {
-      id: 3,
-      title: 'Special Offer - Electronics',
-      message: 'Get 15% off on all electronics this weekend. Use code TECH15 at checkout.',
-      type: 'promotion',
-      isRead: true,
-      createdAt: '2024-11-05T09:00:00Z'
-    },
-    {
-      id: 4,
-      title: 'Order Shipped',
-      message: 'Your order #AF2024000 has been shipped and will arrive in 2-3 business days.',
-      type: 'order',
-      isRead: true,
-      createdAt: '2024-11-04T14:20:00Z',
-      actionLink: '/account/orders/AF2024000'
-    },
-    {
-      id: 5,
-      title: 'System Maintenance',
-      message: 'We will be performing scheduled maintenance on Sunday night from 12 AM to 2 AM.',
-      type: 'system',
-      isRead: true,
-      createdAt: '2024-11-03T16:00:00Z'
-    }
-  ]);
-
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [allNotifications, setAllNotifications] = useState<Notification[]>([]); // Keep track of all notifications for unread count
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread' | 'order' | 'promotion'>('all');
 
-  const markAsRead = (notificationId: number) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
+  useEffect(() => {
+    fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await axios.get('/notifications', {
+        params: {
+          type: filter === 'all' || filter === 'unread' ? undefined : filter,
+          unread: filter === 'unread' ? 'true' : undefined
+        }
+      });
+
+      if (response.data.success) {
+        const fetchedNotifications = response.data.data || [];
+        setNotifications(fetchedNotifications);
+        
+        // If we're fetching all notifications, also update the allNotifications for unread count
+        if (filter === 'all') {
+          setAllNotifications(fetchedNotifications);
+        }
+      } else {
+        setError(response.data.message || 'Failed to fetch notifications');
+      }
+    } catch (error: any) {
+      console.error('Error fetching notifications:', error);
+      setError('Failed to load notifications. Please try again later.');
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications(prev =>
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
+  // Refetch when filter changes
+  useEffect(() => {
+    fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
+
+  const markAsRead = async (notificationId: number) => {
+    try {
+      const response = await axios.post(`/notifications/${notificationId}/mark-read`);
+      
+      if (response.data.success) {
+        setNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { ...notification, isRead: true }
+              : notification
+          )
+        );
+        
+        // Also update allNotifications for accurate unread count
+        setAllNotifications(prev =>
+          prev.map(notification =>
+            notification.id === notificationId
+              ? { ...notification, isRead: true }
+              : notification
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
-  const deleteNotification = (notificationId: number) => {
-    setNotifications(prev =>
-      prev.filter(notification => notification.id !== notificationId)
-    );
+  const markAllAsRead = async () => {
+    try {
+      const response = await axios.post('/notifications/mark-all-read');
+      
+      if (response.data.success) {
+        setNotifications(prev =>
+          prev.map(notification => ({ ...notification, isRead: true }))
+        );
+        
+        // Also update allNotifications for accurate unread count
+        setAllNotifications(prev =>
+          prev.map(notification => ({ ...notification, isRead: true }))
+        );
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      const response = await axios.delete(`/notifications/${notificationId}`);
+      
+      if (response.data.success) {
+        setNotifications(prev =>
+          prev.filter(notification => notification.id !== notificationId)
+        );
+        
+        // Also remove from allNotifications for accurate unread count
+        setAllNotifications(prev =>
+          prev.filter(notification => notification.id !== notificationId)
+        );
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
   };
 
   const filteredNotifications = notifications.filter(notification => {
     switch (filter) {
       case 'unread':
-        return !notification.isRead;
+        // When unread filter is active, backend already returns only unread notifications
+        return true;
       case 'order':
         return notification.type === 'order';
       case 'promotion':
@@ -107,7 +153,7 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
     }
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = allNotifications.filter(n => !n.isRead).length;
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -170,6 +216,38 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading notifications</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <button
+            onClick={fetchNotifications}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -179,14 +257,22 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
             You have {unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}
           </p>
         </div>
-        {unreadCount > 0 && (
+        <div className="flex space-x-2">
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllAsRead}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Mark All Read
+            </button>
+          )}
           <button
-            onClick={markAllAsRead}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={fetchNotifications}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
           >
-            Mark All Read
+            Refresh
           </button>
-        )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -220,8 +306,14 @@ const Notifications: React.FC<NotificationsProps> = ({ user }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5-5v10zM10.97 4.97a.75.75 0 0 0-1.08 1.08l1.51 1.51c-.91.28-1.61.81-1.96 1.44a3.5 3.5 0 0 0 0 4a3.5 3.5 0 0 0 1.96 1.44l-1.51 1.51a.75.75 0 1 0 1.08 1.08l6-6a.75.75 0 0 0 0-1.08l-6-6z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
-            <p className="text-gray-500">You're all caught up! No notifications to display.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications yet</h3>
+            <p className="text-gray-500 mb-4">You'll see notifications about your orders, promotions, and account updates here when they become available.</p>
+            <button 
+              onClick={() => window.history.back()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Start Shopping
+            </button>
           </div>
         ) : (
           filteredNotifications.map((notification) => (

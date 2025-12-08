@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from '../../utils/axios';
 
 interface User {
   id: number;
@@ -22,98 +23,99 @@ interface OrderItem {
 }
 
 interface Order {
-  id: string;
-  orderNumber: string;
-  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  id: number;
+  orderNumber?: string;
+  status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
   items: OrderItem[];
   total: number;
-  shippingAddress: string;
+  shippingAddress?: string;
   paymentMethod: string;
   orderDate: string;
   estimatedDelivery?: string;
   trackingNumber?: string;
+  itemCount: number;
 }
 
 const Orders: React.FC<OrdersProps> = ({ user }) => {
-  // Mock order data
-  const [orders] = useState<Order[]>([
-    {
-      id: '1',
-      orderNumber: 'JM2024001',
-      status: 'shipped',
-      items: [
-        {
-          id: 1,
-          productName: 'Wireless Bluetooth Headphones',
-          quantity: 1,
-          price: 79.99,
-          imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=150&h=150&fit=crop&crop=center'
-        },
-        {
-          id: 2,
-          productName: 'USB-C Charging Cable',
-          quantity: 2,
-          price: 15.99,
-          imageUrl: 'https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=150&h=150&fit=crop&crop=center'
-        }
-      ],
-      total: 111.97,
-      shippingAddress: '123 Main St, City, State 12345',
-      paymentMethod: 'Credit Card ending in 4567',
-      orderDate: '2024-11-07T10:30:00Z',
-      estimatedDelivery: '2024-11-10T18:00:00Z',
-      trackingNumber: 'TRK123456789'
-    },
-    {
-      id: '2',
-      orderNumber: 'JM2024000',
-      status: 'delivered',
-      items: [
-        {
-          id: 3,
-          productName: 'Smartphone Stand',
-          quantity: 1,
-          price: 24.99,
-          imageUrl: 'https://images.unsplash.com/photo-1512499617640-c74ae3a79d37?w=150&h=150&fit=crop&crop=center'
-        }
-      ],
-      total: 24.99,
-      shippingAddress: '123 Main St, City, State 12345',
-      paymentMethod: 'PayPal',
-      orderDate: '2024-11-02T14:20:00Z',
-      estimatedDelivery: '2024-11-05T18:00:00Z',
-      trackingNumber: 'TRK987654321'
-    },
-    {
-      id: '3',
-      orderNumber: 'JM2024002',
-      status: 'confirmed',
-      items: [
-        {
-          id: 4,
-          productName: 'Laptop Sleeve 13 inch',
-          quantity: 1,
-          price: 39.99,
-          imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=150&h=150&fit=crop&crop=center'
-        },
-        {
-          id: 5,
-          productName: 'Wireless Mouse',
-          quantity: 1,
-          price: 29.99,
-          imageUrl: 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=150&h=150&fit=crop&crop=center'
-        }
-      ],
-      total: 69.98,
-      shippingAddress: '123 Main St, City, State 12345',
-      paymentMethod: 'Credit Card ending in 4567',
-      orderDate: '2024-11-08T09:15:00Z',
-      estimatedDelivery: '2024-11-12T18:00:00Z'
-    }
-  ]);
-
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<'all' | Order['status']>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  useEffect(() => {
+    fetchUserOrders();
+  }, []);
+
+  const fetchUserOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.get('/orders');
+      
+      if (response.data.success) {
+        // Transform API data to match our interface
+        const transformedOrders = response.data.data.orders.map((order: any) => ({
+          id: order.id,
+          orderNumber: order.orderNumber,
+          status: order.status,
+          items: [], // Will be populated when order details are fetched
+          total: order.total,
+          shippingAddress: order.shippingAddress,
+          paymentMethod: order.paymentMethod,
+          orderDate: order.orderDate,
+          estimatedDelivery: order.estimatedDelivery,
+          trackingNumber: order.trackingNumber,
+          itemCount: order.itemCount
+        }));
+        
+        setOrders(transformedOrders);
+      } else {
+        setError(response.data.message || 'Failed to fetch orders');
+      }
+    } catch (error: any) {
+      console.error('Error fetching orders:', error);
+      setError('Failed to load orders. Please try again later.');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchOrderDetails = async (orderId: number) => {
+    try {
+      const response = await axios.get(`/orders/${orderId}`);
+      
+      if (response.data.success) {
+        const orderData = response.data.data;
+        const detailedOrder: Order = {
+          id: orderData.id,
+          orderNumber: orderData.orderNumber,
+          status: orderData.status,
+          items: orderData.items.map((item: any) => ({
+            id: item.id,
+            productName: item.productName,
+            quantity: item.quantity,
+            price: item.price,
+            imageUrl: item.imageUrl || '/placeholder-product.png'
+          })),
+          total: orderData.total,
+          shippingAddress: orderData.shippingAddress,
+          paymentMethod: orderData.paymentMethod,
+          orderDate: orderData.orderDate,
+          estimatedDelivery: orderData.estimatedDelivery,
+          trackingNumber: orderData.trackingNumber,
+          itemCount: orderData.items.length
+        };
+        
+        setSelectedOrder(detailedOrder);
+      }
+    } catch (error: any) {
+      console.error('Error fetching order details:', error);
+      setError('Failed to load order details.');
+    }
+  };
 
   const filteredOrders = orders.filter(order => 
     selectedStatus === 'all' || order.status === selectedStatus
@@ -125,8 +127,10 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
         return 'bg-yellow-100 text-yellow-800';
       case 'confirmed':
         return 'bg-blue-100 text-blue-800';
-      case 'shipped':
+      case 'processing':
         return 'bg-purple-100 text-purple-800';
+      case 'shipped':
+        return 'bg-indigo-100 text-indigo-800';
       case 'delivered':
         return 'bg-green-100 text-green-800';
       case 'cancelled':
@@ -148,6 +152,12 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
         return (
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      case 'processing':
+        return (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
         );
       case 'shipped':
@@ -288,6 +298,38 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error loading orders</h3>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <button
+            onClick={fetchUserOrders}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -295,6 +337,12 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
           <h2 className="text-2xl font-bold text-gray-900">My Orders</h2>
           <p className="text-gray-600 mt-1">Track and manage your orders</p>
         </div>
+        <button
+          onClick={fetchUserOrders}
+          className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          Refresh
+        </button>
       </div>
 
       {/* Status Filter */}
@@ -303,6 +351,7 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
           { key: 'all', label: 'All Orders' },
           { key: 'pending', label: 'Pending' },
           { key: 'confirmed', label: 'Confirmed' },
+          { key: 'processing', label: 'Processing' },
           { key: 'shipped', label: 'Shipped' },
           { key: 'delivered', label: 'Delivered' }
         ].map((tab) => (
@@ -329,15 +378,21 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
-            <p className="text-gray-500">You haven't placed any orders yet.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No orders yet</h3>
+            <p className="text-gray-500 mb-4">When you place your first order, it will appear here with tracking and delivery information.</p>
+            <button 
+              onClick={() => window.history.back()}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Browse Products
+            </button>
           </div>
         ) : (
           filteredOrders.map((order) => (
             <div
               key={order.id}
               className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setSelectedOrder(order)}
+              onClick={() => fetchOrderDetails(order.id)}
             >
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-4">
@@ -352,22 +407,32 @@ const Orders: React.FC<OrdersProps> = ({ user }) => {
                 </div>
                 <div className="text-right">
                   <p className="font-medium text-gray-900">${order.total.toFixed(2)}</p>
-                  <p className="text-sm text-gray-600">{order.items.length} item{order.items.length !== 1 ? 's' : ''}</p>
+                  <p className="text-sm text-gray-600">{order.itemCount} item{order.itemCount !== 1 ? 's' : ''}</p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-4">
-                {order.items.slice(0, 3).map((item) => (
-                  <img
-                    key={item.id}
-                    src={item.imageUrl}
-                    alt={item.productName}
-                    className="w-12 h-12 object-cover rounded"
-                  />
-                ))}
-                {order.items.length > 3 && (
+                {order.items && order.items.length > 0 ? (
+                  <>
+                    {order.items.slice(0, 3).map((item) => (
+                      <img
+                        key={item.id}
+                        src={item.imageUrl}
+                        alt={item.productName}
+                        className="w-12 h-12 object-cover rounded"
+                      />
+                    ))}
+                    {order.items.length > 3 && (
+                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                        <span className="text-sm text-gray-600">+{order.items.length - 3}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
                   <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                    <span className="text-sm text-gray-600">+{order.items.length - 3}</span>
+                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
                   </div>
                 )}
                 <div className="flex-1"></div>

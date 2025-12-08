@@ -30,6 +30,8 @@ interface User {
   username: string;
   email: string;
   full_name: string;
+  phone?: string;
+  address?: string;
   user_type: 'customer' | 'admin' | 'store_owner';
   store?: any;
 }

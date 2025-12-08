@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
+import CheckoutModal from './CheckoutModal';
 
 const CartDrawer: React.FC = () => {
   const { state, removeFromCart, updateQuantity, clearCart, closeCart, getTotalPrice } = useCart();
+  const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
 
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -110,7 +112,10 @@ const CartDrawer: React.FC = () => {
             </div>
             
             <div className="space-y-3">
-              <button className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200">
+              <button 
+                onClick={() => setIsCheckoutModalOpen(true)}
+                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors duration-200"
+              >
                 Proceed to Checkout
               </button>
               <button
@@ -123,6 +128,16 @@ const CartDrawer: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Checkout Modal */}
+      <CheckoutModal
+        isOpen={isCheckoutModalOpen}
+        onClose={() => setIsCheckoutModalOpen(false)}
+        onSuccess={() => {
+          setIsCheckoutModalOpen(false);
+          closeCart();
+        }}
+      />
     </div>
   );
 };
