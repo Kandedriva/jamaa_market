@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../utils/axios';
 import ImageUpload from '../ImageUpload';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
 
 interface Product {
   id: number;
@@ -50,9 +48,7 @@ const ProductManagement: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/products`, {
-        withCredentials: true
-      });
+      const response = await axios.get('/products');
       if (response.data.success) {
         setProducts(response.data.data);
       }
@@ -73,13 +69,9 @@ const ProductManagement: React.FC = () => {
       };
 
       if (editingProduct) {
-        await axios.put(`${API_BASE_URL}/admin/products/${editingProduct.id}`, productData, {
-          withCredentials: true
-        });
+        await axios.put(`/admin/products/${editingProduct.id}`, productData);
       } else {
-        await axios.post(`${API_BASE_URL}/admin/products`, productData, {
-          withCredentials: true
-        });
+        await axios.post('/admin/products', productData);
       }
 
       await fetchProducts();
@@ -106,9 +98,7 @@ const ProductManagement: React.FC = () => {
   const handleDelete = async (productId: number) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
-        await axios.delete(`${API_BASE_URL}/admin/products/${productId}`, {
-          withCredentials: true
-        });
+        await axios.delete(`/admin/products/${productId}`);
         await fetchProducts();
       } catch (error) {
         console.error('Error deleting product:', error);
@@ -299,6 +289,9 @@ const ProductManagement: React.FC = () => {
                         src={formData.image_url} 
                         alt="Product preview" 
                         className="w-16 h-16 rounded-md object-cover border"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/api/placeholder/64/64';
+                        }}
                       />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-gray-600 truncate">
@@ -370,9 +363,12 @@ const ProductManagement: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <img
-                        src={product.image_url}
+                        src={product.image_url || '/api/placeholder/48/48'}
                         alt={product.name}
                         className="w-12 h-12 rounded-md object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/api/placeholder/48/48';
+                        }}
                       />
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">{product.name}</div>

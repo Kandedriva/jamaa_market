@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
+import axios from '../../utils/axios';
 
 interface DashboardStats {
   totalProducts: number;
   totalOrders: number;
   totalRevenue: number;
   totalUsers: number;
+  totalCustomers: number;
+  totalStoreOwners: number;
+  totalAdmins: number;
+  pendingOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
   recentOrders: any[];
   topProducts: any[];
+  lowStockProducts: any[];
+  topCategories: any[];
 }
 
 interface DashboardProps {
@@ -22,8 +28,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     totalOrders: 0,
     totalRevenue: 0,
     totalUsers: 0,
+    totalCustomers: 0,
+    totalStoreOwners: 0,
+    totalAdmins: 0,
+    pendingOrders: 0,
+    completedOrders: 0,
+    cancelledOrders: 0,
     recentOrders: [],
-    topProducts: []
+    topProducts: [],
+    lowStockProducts: [],
+    topCategories: []
   });
   const [loading, setLoading] = useState(true);
 
@@ -34,29 +48,34 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      // For now, we'll use mock data since we don't have orders/users yet
-      const productsResponse = await axios.get(`${API_BASE_URL}/products`);
       
-      // Mock data for demonstration
-      setStats({
-        totalProducts: productsResponse.data.data?.length || 0,
-        totalOrders: 127,
-        totalRevenue: 15847.50,
-        totalUsers: 342,
-        recentOrders: [
-          { id: 1, customer: 'John Doe', total: 89.99, status: 'completed', date: '2025-11-03' },
-          { id: 2, customer: 'Jane Smith', total: 159.99, status: 'pending', date: '2025-11-03' },
-          { id: 3, customer: 'Mike Johnson', total: 45.50, status: 'processing', date: '2025-11-02' },
-          { id: 4, customer: 'Sarah Wilson', total: 199.99, status: 'completed', date: '2025-11-02' },
-          { id: 5, customer: 'Tom Brown', total: 75.25, status: 'shipped', date: '2025-11-01' }
-        ],
-        topProducts: productsResponse.data.data?.slice(0, 5).map((product: any, index: number) => ({
-          ...product,
-          sales: Math.floor(Math.random() * 100) + 20
-        })) || []
-      });
+      // Fetch dashboard statistics from the admin API
+      const response = await axios.get('/admin/dashboard/stats');
+      
+      if (response.data.success) {
+        setStats(response.data.data);
+      } else {
+        console.error('Failed to fetch dashboard data:', response.data.message);
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      // Set empty/default stats on error
+      setStats({
+        totalProducts: 0,
+        totalOrders: 0,
+        totalRevenue: 0,
+        totalUsers: 0,
+        totalCustomers: 0,
+        totalStoreOwners: 0,
+        totalAdmins: 0,
+        pendingOrders: 0,
+        completedOrders: 0,
+        cancelledOrders: 0,
+        recentOrders: [],
+        topProducts: [],
+        lowStockProducts: [],
+        topCategories: []
+      });
     } finally {
       setLoading(false);
     }
@@ -80,7 +99,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {
       completed: 'bg-green-100 text-green-800',
+      delivered: 'bg-green-100 text-green-800',
       pending: 'bg-yellow-100 text-yellow-800',
+      confirmed: 'bg-blue-100 text-blue-800',
       processing: 'bg-blue-100 text-blue-800',
       shipped: 'bg-purple-100 text-purple-800',
       cancelled: 'bg-red-100 text-red-800'
@@ -99,9 +120,21 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
-        <p className="text-gray-600">Welcome back! Here's what's happening with your marketplace.</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="text-gray-600">Welcome back! Here's what's happening with your marketplace.</p>
+        </div>
+        <button
+          onClick={fetchDashboardData}
+          disabled={loading}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+        >
+          <svg className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {loading ? 'Refreshing...' : 'Refresh'}
+        </button>
       </div>
 
       {/* Stats Grid */}
@@ -156,22 +189,34 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             <h3 className="text-lg font-medium text-gray-900">Recent Orders</h3>
           </div>
           <div className="p-6">
-            <div className="space-y-4">
-              {stats.recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">#{order.id} - {order.customer}</p>
-                    <p className="text-xs text-gray-500">{order.date}</p>
+            {stats.recentOrders.length > 0 ? (
+              <div className="space-y-4">
+                {stats.recentOrders.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">#{order.id} - {order.customer}</p>
+                      <p className="text-xs text-gray-500">{order.date}</p>
+                      {order.email && (
+                        <p className="text-xs text-gray-400">{order.email}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">${order.total?.toFixed(2)}</p>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
+                        {order.status}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">${order.total}</p>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(order.status)}`}>
-                      {order.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="mt-2 text-sm text-gray-500">No orders yet</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -181,26 +226,106 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             <h3 className="text-lg font-medium text-gray-900">Top Products</h3>
           </div>
           <div className="p-6">
-            <div className="space-y-4">
-              {stats.topProducts.map((product, index) => (
-                <div key={product.id} className="flex items-center space-x-4">
-                  <div className="flex-shrink-0">
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-12 h-12 rounded-md object-cover"
-                    />
+            {stats.topProducts.length > 0 ? (
+              <div className="space-y-4">
+                {stats.topProducts.map((product, index) => (
+                  <div key={product.id} className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <img
+                        src={product.image_url || '/api/placeholder/48/48'}
+                        alt={product.name}
+                        className="w-12 h-12 rounded-md object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/api/placeholder/48/48';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                      <p className="text-xs text-gray-500">{product.sales} sales</p>
+                      <p className="text-xs text-gray-400">{product.category}</p>
+                    </div>
+                    <div className="text-sm font-bold text-gray-900">
+                      ${product.price?.toFixed(2)}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
-                    <p className="text-xs text-gray-500">{product.sales} sales</p>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                </svg>
+                <p className="mt-2 text-sm text-gray-500">No products yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Additional Insights Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Low Stock Alert */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Low Stock Alert</h3>
+          </div>
+          <div className="p-6">
+            {stats.lowStockProducts.length > 0 ? (
+              <div className="space-y-4">
+                {stats.lowStockProducts.slice(0, 5).map((product) => (
+                  <div key={product.id} className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                      <p className="text-xs text-gray-500">{product.category}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-red-600">{product.stock_quantity} left</p>
+                      <p className="text-xs text-gray-500">${product.price}</p>
+                    </div>
                   </div>
-                  <div className="text-sm font-bold text-gray-900">
-                    ${product.price}
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="mt-2 text-sm text-green-600">All products well stocked</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Category Overview */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900">Categories Overview</h3>
+          </div>
+          <div className="p-6">
+            {stats.topCategories.length > 0 ? (
+              <div className="space-y-4">
+                {stats.topCategories.slice(0, 5).map((category, index) => (
+                  <div key={category.category} className="flex items-center justify-between py-2">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{category.category}</p>
+                      <p className="text-xs text-gray-500">{category.product_count} products</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-900">${category.avg_price?.toFixed(2)} avg</p>
+                      <p className="text-xs text-gray-500">{category.total_stock} total stock</p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <p className="mt-2 text-sm text-gray-500">No categories yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

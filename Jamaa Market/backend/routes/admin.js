@@ -135,32 +135,127 @@ router.get('/dashboard/stats', authenticateAdmin, async (req, res) => {
     // Get product count
     const productCount = await pool.query('SELECT COUNT(*) as count FROM products');
     
-    // Get total revenue (mock data for now)
-    const revenueQuery = await pool.query(`
-      SELECT SUM(price * stock_quantity) as total_value 
-      FROM products
+    // Get order statistics
+    const orderStats = await pool.query(`
+      SELECT 
+        COUNT(*) as total_orders,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_orders,
+        SUM(CASE WHEN status = 'completed' OR status = 'delivered' THEN 1 ELSE 0 END) as completed_orders,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_orders,
+        COALESCE(SUM(total_amount), 0) as total_revenue
+      FROM orders
     `);
 
-    // Mock data for orders and users (would come from actual tables in real app)
+    // Get user statistics
+    const userStats = await pool.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM customers) as total_customers,
+        (SELECT COUNT(*) FROM store_owners) as total_store_owners,
+        (SELECT COUNT(*) FROM admins) as total_admins
+    `);
+
+    // Get recent orders (last 10)
+    const recentOrders = await pool.query(`
+      SELECT 
+        o.id,
+        o.delivery_name as customer_name,
+        o.delivery_email as customer_email,
+        o.total_amount,
+        o.status,
+        o.created_at,
+        COALESCE(c.username, 'Guest') as customer_username
+      FROM orders o
+      LEFT JOIN customers c ON o.user_id = c.id
+      ORDER BY o.created_at DESC
+      LIMIT 10
+    `);
+
+    // Get top products by order frequency
+    const topProducts = await pool.query(`
+      SELECT 
+        p.id,
+        p.name,
+        p.price,
+        p.image_url,
+        p.category,
+        COALESCE(order_stats.order_count, 0) as sales_count
+      FROM products p
+      LEFT JOIN (
+        SELECT 
+          product_id,
+          COUNT(*) as order_count
+        FROM (
+          SELECT 
+            CAST(item->>'product_id' AS INTEGER) as product_id
+          FROM orders,
+          jsonb_array_elements(items::jsonb) as item
+          WHERE items IS NOT NULL AND items != ''
+        ) product_orders
+        GROUP BY product_id
+      ) order_stats ON p.id = order_stats.product_id
+      ORDER BY order_stats.order_count DESC NULLS LAST, p.created_at DESC
+      LIMIT 10
+    `);
+
+    // Get low stock products
+    const lowStockProducts = await pool.query(`
+      SELECT id, name, stock_quantity, category, price
+      FROM products 
+      WHERE stock_quantity < 10 
+      ORDER BY stock_quantity ASC
+      LIMIT 10
+    `);
+
+    // Get category statistics
+    const topCategories = await pool.query(`
+      SELECT 
+        category, 
+        COUNT(*) as product_count,
+        AVG(price) as avg_price,
+        SUM(stock_quantity) as total_stock
+      FROM products 
+      GROUP BY category 
+      ORDER BY product_count DESC
+      LIMIT 10
+    `);
+
+    const orderData = orderStats.rows[0];
+    const userData = userStats.rows[0];
+    
     const stats = {
       totalProducts: parseInt(productCount.rows[0].count),
-      totalOrders: 127, // Mock data
-      totalRevenue: parseFloat(revenueQuery.rows[0].total_value) || 0,
-      totalUsers: 342, // Mock data
-      lowStockProducts: await pool.query(`
-        SELECT name, stock_quantity 
-        FROM products 
-        WHERE stock_quantity < 10 
-        ORDER BY stock_quantity ASC
-        LIMIT 5
-      `),
-      topCategories: await pool.query(`
-        SELECT category, COUNT(*) as product_count
-        FROM products 
-        GROUP BY category 
-        ORDER BY product_count DESC
-        LIMIT 5
-      `)
+      totalOrders: parseInt(orderData.total_orders) || 0,
+      pendingOrders: parseInt(orderData.pending_orders) || 0,
+      completedOrders: parseInt(orderData.completed_orders) || 0,
+      cancelledOrders: parseInt(orderData.cancelled_orders) || 0,
+      totalRevenue: parseFloat(orderData.total_revenue) || 0,
+      totalCustomers: parseInt(userData.total_customers) || 0,
+      totalStoreOwners: parseInt(userData.total_store_owners) || 0,
+      totalAdmins: parseInt(userData.total_admins) || 0,
+      totalUsers: (parseInt(userData.total_customers) || 0) + (parseInt(userData.total_store_owners) || 0) + (parseInt(userData.total_admins) || 0),
+      recentOrders: recentOrders.rows.map(order => ({
+        id: order.id,
+        customer: order.customer_name || order.customer_username,
+        email: order.customer_email,
+        total: parseFloat(order.total_amount),
+        status: order.status,
+        date: order.created_at.toISOString().split('T')[0]
+      })),
+      topProducts: topProducts.rows.map(product => ({
+        id: product.id,
+        name: product.name,
+        price: parseFloat(product.price),
+        image_url: product.image_url,
+        category: product.category,
+        sales: parseInt(product.sales_count) || 0
+      })),
+      lowStockProducts: lowStockProducts.rows,
+      topCategories: topCategories.rows.map(cat => ({
+        category: cat.category,
+        product_count: parseInt(cat.product_count),
+        avg_price: parseFloat(cat.avg_price) || 0,
+        total_stock: parseInt(cat.total_stock) || 0
+      }))
     };
 
     res.json({

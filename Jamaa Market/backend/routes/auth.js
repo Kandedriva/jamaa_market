@@ -421,9 +421,15 @@ router.post('/store-owner/login', async (req, res) => {
     const authResult = await authenticateUser(email, password, 'store_owner');
 
     if (!authResult.success) {
+      console.log('Store owner auth failed:', {
+        email: email,
+        message: authResult.message,
+        error: authResult.error
+      });
       return res.status(401).json({
         success: false,
-        message: 'Invalid store owner credentials'
+        message: authResult.message || 'Invalid store owner credentials',
+        ...(process.env.NODE_ENV === 'development' && authResult.error && { error: authResult.error })
       });
     }
 

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import axios from 'axios';
+import axios from '../utils/axios';
 
 interface ImageUploadProps {
   onImageUpload: (imageData: ImageUploadResult) => void;
@@ -101,8 +101,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           endpoint = '/images/upload';
       }
 
-      const baseUrl = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
-      const response = await axios.post(`${baseUrl}${endpoint}`, formData, {
+      const response = await axios.post(endpoint, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },

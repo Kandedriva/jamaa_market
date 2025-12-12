@@ -36,44 +36,69 @@ function AppContent() {
   useEffect(() => {
     const validateStoredAuth = async () => {
       const userData = localStorage.getItem('afrozy-market-user');
+      const token = localStorage.getItem('afrozy-market-token');
       
       if (userData) {
         try {
           const parsedUser = JSON.parse(userData);
           
-          // Validate session by making a test request
-          try {
-            const response = await fetch('https://localhost:3001/api/auth/profile', {
-              credentials: 'include' // Include session cookies
-            });
-            
-            if (response.ok) {
-              // Session is valid
+          // For store owners with JWT tokens
+          if (parsedUser.user_type === 'store_owner' && token) {
+            try {
+              // Validate JWT token by making a test request
+              const response = await fetch('http://localhost:3001/api/store/products', {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                }
+              });
+              
+              if (response.ok) {
+                // Token is valid
+                setUser(parsedUser);
+                setIsStoreOwnerAuthenticated(true);
+              } else {
+                // Token is invalid, clear stored data
+                localStorage.removeItem('afrozy-market-user');
+                localStorage.removeItem('afrozy-market-token');
+              }
+            } catch (networkError) {
+              // Network error, assume token might still be valid for now
+              setUser(parsedUser);
+              setIsStoreOwnerAuthenticated(true);
+            }
+          } 
+          // For admins and customers using session-based auth
+          else {
+            try {
+              const response = await fetch('http://localhost:3001/api/auth/profile', {
+                credentials: 'include' // Include session cookies
+              });
+              
+              if (response.ok) {
+                // Session is valid
+                setUser(parsedUser);
+                
+                if (parsedUser.user_type === 'admin') {
+                  setIsAdminAuthenticated(true);
+                }
+              } else {
+                // Session is invalid, clear stored data
+                localStorage.removeItem('afrozy-market-user');
+              }
+            } catch (networkError) {
+              // Network error, assume session might still be valid for now
               setUser(parsedUser);
               
-              // Set authentication based on user type
               if (parsedUser.user_type === 'admin') {
                 setIsAdminAuthenticated(true);
-              } else if (parsedUser.user_type === 'store_owner') {
-                setIsStoreOwnerAuthenticated(true);
               }
-            } else {
-              // Session is invalid, clear stored data
-              localStorage.removeItem('afrozy-market-user');
-            }
-          } catch (networkError) {
-            // Network error, assume session might still be valid for now
-            setUser(parsedUser);
-            
-            if (parsedUser.user_type === 'admin') {
-              setIsAdminAuthenticated(true);
-            } else if (parsedUser.user_type === 'store_owner') {
-              setIsStoreOwnerAuthenticated(true);
             }
           }
         } catch (parseError) {
           // Invalid stored data, clear it
           localStorage.removeItem('afrozy-market-user');
+          localStorage.removeItem('afrozy-market-token');
         }
       }
     };
@@ -139,8 +164,11 @@ function AppContent() {
   const handleStoreOwnerLogin = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store user data (no token needed for session auth)
+    // Store user data and JWT token for store owners
     localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
+    if (token) {
+      localStorage.setItem('afrozy-market-token', token);
+    }
     
     // Set store owner authentication
     setIsStoreOwnerAuthenticated(true);
@@ -151,8 +179,11 @@ function AppContent() {
   const handleStoreOwnerRegister = (userData: User, token: string) => {
     setUser(userData);
     
-    // Store user data (no token needed for session auth)
+    // Store user data and JWT token for store owners
     localStorage.setItem('afrozy-market-user', JSON.stringify(userData));
+    if (token) {
+      localStorage.setItem('afrozy-market-token', token);
+    }
     
     // Set store owner authentication
     setIsStoreOwnerAuthenticated(true);
@@ -166,7 +197,9 @@ function AppContent() {
     setIsAdminAuthenticated(false);
     setIsStoreOwnerAuthenticated(false);
     
-    // Cart context will handle clearing localStorage and cart
+    // Clear stored authentication data
+    localStorage.removeItem('afrozy-market-user');
+    localStorage.removeItem('afrozy-market-token');
     
     // Navigate to home
     window.history.pushState(null, '', '/');

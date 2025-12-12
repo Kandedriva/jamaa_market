@@ -83,11 +83,16 @@ async function authenticateUser(email, password, userType = null) {
       };
     }
 
-    // Update last login timestamp
-    await pool.query(
-      `UPDATE ${tableName} SET last_login = CURRENT_TIMESTAMP WHERE id = $1`,
-      [user.id]
-    );
+    // Update last login timestamp (optional - handle gracefully if column doesn't exist)
+    try {
+      await pool.query(
+        `UPDATE ${tableName} SET last_login = CURRENT_TIMESTAMP WHERE id = $1`,
+        [user.id]
+      );
+    } catch (updateError) {
+      console.warn(`Warning: Could not update last_login for ${tableName}:`, updateError.message);
+      // Continue execution - this is not critical for authentication
+    }
 
     // Remove password hash from response
     delete user.password_hash;
@@ -102,10 +107,17 @@ async function authenticateUser(email, password, userType = null) {
     };
 
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('Authentication error details:', {
+      message: error.message,
+      stack: error.stack,
+      email: email,
+      userType: userType,
+      tableName: tableName
+    });
     return {
       success: false,
-      message: 'Authentication failed'
+      message: 'Authentication failed',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
     };
   }
 }

@@ -1,38 +1,106 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 const { authenticateSession } = require('../utils/auth');
 
 const router = express.Router();
 
+// JWT configuration
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+
+// JWT Authentication middleware
+function authenticateJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Access token required'
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('JWT verification error:', error.message);
+    return res.status(403).json({
+      success: false,
+      message: 'Invalid or expired token'
+    });
+  }
+}
+
 // Middleware to authenticate store owners and get store info
 function authenticateStoreOwner(req, res, next) {
-  // First use the standard authentication
-  authenticateSession('store_owner')(req, res, async (err) => {
-    if (err) return;
-    
-    try {
-      // Get store ID for this store owner
-      const storeQuery = 'SELECT id FROM stores WHERE owner_id = $1';
-      const result = await pool.query(storeQuery, [req.user.userId]);
-      
-      if (result.rows.length === 0) {
-        return res.status(403).json({
-          success: false,
-          message: 'No store found for this user'
-        });
-      }
+  // Try JWT authentication first (for new login system)
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1];
 
-      req.user.storeId = result.rows[0].id;
-      next();
+  if (token) {
+    // JWT Authentication
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = { userId: decoded.userId, userType: decoded.userType, email: decoded.email };
+      
+      // Get store ID for this store owner
+      pool.query('SELECT id FROM stores WHERE owner_id = $1', [req.user.userId])
+        .then(result => {
+          if (result.rows.length === 0) {
+            return res.status(403).json({
+              success: false,
+              message: 'No store found for this user'
+            });
+          }
+          req.user.storeId = result.rows[0].id;
+          next();
+        })
+        .catch(error => {
+          console.error('Error verifying store owner:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Authentication error'
+          });
+        });
     } catch (error) {
-      console.error('Error verifying store owner:', error);
-      return res.status(500).json({
+      console.error('JWT verification error:', error.message);
+      return res.status(403).json({
         success: false,
-        message: 'Authentication error'
+        message: 'Invalid or expired token'
       });
     }
-  });
+  } else {
+    // Fall back to session authentication for backward compatibility
+    authenticateSession('store_owner')(req, res, async (err) => {
+      if (err) return;
+      
+      try {
+        // Get store ID for this store owner
+        const storeQuery = 'SELECT id FROM stores WHERE owner_id = $1';
+        const result = await pool.query(storeQuery, [req.user.userId]);
+        
+        if (result.rows.length === 0) {
+          return res.status(403).json({
+            success: false,
+            message: 'No store found for this user'
+          });
+        }
+
+        req.user.storeId = result.rows[0].id;
+        next();
+      } catch (error) {
+        console.error('Error verifying store owner:', error);
+        return res.status(500).json({
+          success: false,
+          message: 'Authentication error'
+        });
+      }
+    });
+  }
 }
 
 // GET /api/store/all - Get all stores for public listing
@@ -425,8 +493,6 @@ router.get('/:id/products', async (req, res) => {
 });
 
 
-// JWT constants
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 // Validation helper functions
 const validateEmail = (email) => {
@@ -655,15 +721,24 @@ router.post('/login', async (req, res) => {
     );
 
     // Generate JWT token
-    const token = jwt.sign(
-      { 
-        userId: userData.id, 
-        email: userData.email, 
-        userType: userData.user_type 
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    let token;
+    try {
+      token = jwt.sign(
+        { 
+          userId: userData.id, 
+          email: userData.email, 
+          userType: userData.user_type 
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+    } catch (jwtError) {
+      console.error('JWT generation error:', jwtError);
+      return res.status(500).json({
+        success: false,
+        message: 'Authentication token generation failed'
+      });
+    }
 
     // Structure response data
     const user = {

@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
+import axios from '../../utils/axios';
 
 interface StoreOwnerLoginProps {
   onLoginSuccess?: (userData: any, token: string) => void;
@@ -40,7 +38,7 @@ const StoreOwnerLogin: React.FC<StoreOwnerLoginProps> = ({
     }
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/store/login`, {
+      const response = await axios.post('/store/login', {
         email: formData.email,
         password: formData.password
       });

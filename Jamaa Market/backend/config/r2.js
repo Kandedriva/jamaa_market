@@ -7,8 +7,16 @@ const logger = require('./logger');
 
 class R2Service {
   constructor() {
-    // Construct endpoint from account ID
-    const endpoint = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    // Construct endpoint - support both R2_ENDPOINT and R2_ACCOUNT_ID formats
+    let endpoint;
+    if (process.env.R2_ENDPOINT) {
+      endpoint = process.env.R2_ENDPOINT;
+    } else if (process.env.R2_ACCOUNT_ID) {
+      endpoint = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    } else {
+      console.error('❌ R2 configuration error: Neither R2_ENDPOINT nor R2_ACCOUNT_ID is set');
+      endpoint = 'https://placeholder.r2.cloudflarestorage.com';
+    }
     
     this.client = new S3Client({
       region: 'auto',
@@ -261,13 +269,22 @@ class R2Service {
    * Check if service is configured
    */
   isConfigured() {
-    return !!(
-      process.env.R2_ACCOUNT_ID &&
-      process.env.R2_ACCESS_KEY_ID &&
-      process.env.R2_SECRET_ACCESS_KEY &&
-      process.env.R2_BUCKET_NAME &&
-      process.env.R2_PUBLIC_URL
-    );
+    const hasEndpoint = process.env.R2_ENDPOINT || process.env.R2_ACCOUNT_ID;
+    const hasCredentials = process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY;
+    const hasBucket = process.env.R2_BUCKET_NAME;
+    const hasPublicUrl = process.env.R2_PUBLIC_URL;
+    
+    const isConfigured = !!(hasEndpoint && hasCredentials && hasBucket && hasPublicUrl);
+    
+    if (!isConfigured) {
+      console.log('❌ R2 Configuration Check:');
+      console.log(`  - Endpoint: ${hasEndpoint ? '✅' : '❌'} (R2_ENDPOINT or R2_ACCOUNT_ID)`);
+      console.log(`  - Credentials: ${hasCredentials ? '✅' : '❌'} (R2_ACCESS_KEY_ID & R2_SECRET_ACCESS_KEY)`);
+      console.log(`  - Bucket: ${hasBucket ? '✅' : '❌'} (R2_BUCKET_NAME)`);
+      console.log(`  - Public URL: ${hasPublicUrl ? '✅' : '❌'} (R2_PUBLIC_URL)`);
+    }
+    
+    return isConfigured;
   }
 
   /**

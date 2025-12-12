@@ -23,6 +23,7 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const { addToCart, state } = useCart();
 
   const handleImageClick = () => {
@@ -31,6 +32,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const handleImageLoad = () => {
+    setImageError(false);
+  };
+
+  // Get appropriate image URL or fallback
+  const getImageUrl = () => {
+    if (!product.image_url || imageError) {
+      return '/api/placeholder/400/300';
+    }
+    return product.image_url;
   };
 
   const handleAddToCart = async () => {
@@ -64,10 +81,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     <div className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full">
       <div className="relative overflow-hidden cursor-pointer group">
         <img 
-          src={product.image_url} 
+          src={getImageUrl()} 
           alt={product.name}
           className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-110"
           onClick={handleImageClick}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
         />
         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center">
           <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -84,7 +103,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <ImageModal 
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        imageUrl={product.image_url}
+        imageUrl={getImageUrl()}
         productName={product.name}
       />
       

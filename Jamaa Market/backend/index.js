@@ -212,6 +212,15 @@ const startServer = async () => {
     await addDeliveryFieldsToOrders();
     logger.info('Database tables initialized');
 
+    // Check R2 configuration
+    const r2Service = require('./config/r2');
+    const r2Configured = r2Service.isConfigured();
+    if (r2Configured) {
+      logger.info('✅ Cloudflare R2 storage configured and ready');
+    } else {
+      logger.warn('⚠️ Cloudflare R2 storage not configured - image uploads will fail');
+    }
+
     // Start server
     const server = app.listen(PORT, () => {
       logger.info(`🚀 Afrozy Market API running on port ${PORT} in ${process.env.NODE_ENV} mode`);
