@@ -138,23 +138,71 @@ router.post('/process', extractUserOrSession, async (req, res) => {
       }
     }
 
+    // Group cart items by store for multi-vendor checkout
+    const itemsByStore = cartItems.reduce((acc, item) => {
+      if (!acc[item.store_id]) {
+        acc[item.store_id] = [];
+      }
+      acc[item.store_id].push(item);
+      return acc;
+    }, {});
+
     // Calculate total amount
     const totalAmount = cartItems.reduce((total, item) => {
       return total + (parseFloat(item.price) * item.quantity);
     }, 0);
 
-    // Create payment intent with delivery info in metadata
+    // Get store information and Stripe accounts for all stores in the cart
+    const storeIds = Object.keys(itemsByStore);
+    const storeQuery = `
+      SELECT id, store_name, stripe_connect_account_id, stripe_account_status
+      FROM stores 
+      WHERE id = ANY($1)
+    `;
+    const storeResult = await client.query(storeQuery, [storeIds]);
+    const stores = storeResult.rows;
+
+    // Check if all stores have connected Stripe accounts
+    const storesWithoutStripe = stores.filter(store => 
+      !store.stripe_connect_account_id || store.stripe_account_status !== 'connected'
+    );
+
+    if (storesWithoutStripe.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        success: false,
+        message: `Some stores haven't set up payments yet: ${storesWithoutStripe.map(s => s.store_name).join(', ')}`,
+        unavailableStores: storesWithoutStripe.map(s => s.store_name)
+      });
+    }
+
+    // Calculate application fee (platform fee) - 3% of total
+    const applicationFeePercent = 0.03;
+    const applicationFeeAmount = Math.round(totalAmount * applicationFeePercent * 100);
+
+    // For multi-vendor, we'll use the first store's connected account as the main account
+    // and transfer to other accounts. Alternatively, you could create separate payment intents
+    const primaryStore = stores[0];
+
+    // Create payment intent with the primary store account
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(totalAmount * 100), // Convert to cents
       currency: 'usd',
+      application_fee_amount: applicationFeeAmount,
+      on_behalf_of: primaryStore.stripe_connect_account_id,
+      transfer_data: {
+        destination: primaryStore.stripe_connect_account_id,
+      },
       metadata: {
         userId: req.userId || 'guest',
         sessionId: req.sessionId || '',
         orderType: 'cart_checkout',
         customerName: deliveryInfo.fullName,
-        customerEmail: deliveryInfo.email
+        customerEmail: deliveryInfo.email,
+        storeIds: storeIds.join(','),
+        multiVendor: storeIds.length > 1 ? 'true' : 'false'
       },
-      payment_method_types: ['card'], // Only allow card payments
+      payment_method_types: ['card'],
     });
 
     // Create order record with delivery information
@@ -253,18 +301,87 @@ router.post('/confirm', extractUserOrSession, async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
     if (paymentIntent.status === 'succeeded') {
-      // Update order status
-      const updateOrderQuery = `
-        UPDATE orders 
-        SET status = 'completed', updated_at = NOW()
+      // Get order details first
+      const getOrderQuery = `
+        SELECT id, user_id, session_id, items
+        FROM orders 
         WHERE payment_intent_id = $1
-        RETURNING id, user_id, session_id
       `;
       
-      const orderResult = await client.query(updateOrderQuery, [paymentIntentId]);
+      const orderResult = await client.query(getOrderQuery, [paymentIntentId]);
       
       if (orderResult.rows.length > 0) {
         const order = orderResult.rows[0];
+        const orderItems = JSON.parse(order.items);
+        
+        // Handle multi-vendor transfers if needed
+        const isMultiVendor = paymentIntent.metadata?.multiVendor === 'true';
+        
+        if (isMultiVendor && paymentIntent.metadata?.storeIds) {
+          const storeIds = paymentIntent.metadata.storeIds.split(',');
+          
+          // Group items by store and calculate amounts
+          const itemsByStore = orderItems.reduce((acc, item) => {
+            if (!acc[item.store_id]) {
+              acc[item.store_id] = [];
+            }
+            acc[item.store_id].push(item);
+            return acc;
+          }, {});
+
+          // Get store Stripe accounts
+          const storeQuery = `
+            SELECT id, stripe_connect_account_id, store_name
+            FROM stores 
+            WHERE id = ANY($1) AND stripe_connect_account_id IS NOT NULL
+          `;
+          const storeResult = await client.query(storeQuery, [storeIds]);
+          const stores = storeResult.rows;
+
+          // Create transfers to other stores (excluding primary store that received the payment)
+          const primaryStoreId = storeIds[0];
+          const otherStores = stores.filter(store => store.id.toString() !== primaryStoreId);
+
+          for (const store of otherStores) {
+            const storeItems = itemsByStore[store.id];
+            if (storeItems && storeItems.length > 0) {
+              const storeAmount = storeItems.reduce((total, item) => {
+                return total + (parseFloat(item.price) * item.quantity);
+              }, 0);
+
+              // Create transfer to this store (minus platform fee)
+              const platformFeePercent = 0.03;
+              const transferAmount = Math.round(storeAmount * (1 - platformFeePercent) * 100);
+
+              try {
+                await stripe.transfers.create({
+                  amount: transferAmount,
+                  currency: 'usd',
+                  destination: store.stripe_connect_account_id,
+                  metadata: {
+                    orderId: order.id.toString(),
+                    storeId: store.id.toString(),
+                    storeName: store.store_name,
+                  },
+                });
+                
+                console.log(`Transfer created for store ${store.store_name}: $${transferAmount / 100}`);
+              } catch (transferError) {
+                console.error(`Transfer failed for store ${store.store_name}:`, transferError);
+                // Don't fail the entire order for transfer errors, but log them
+              }
+            }
+          }
+        }
+
+        // Update order status
+        const updateOrderQuery = `
+          UPDATE orders 
+          SET status = 'completed', updated_at = NOW()
+          WHERE payment_intent_id = $1
+        `;
+        
+        await client.query(updateOrderQuery, [paymentIntentId]);
         
         // Clear cart
         if (order.user_id) {
@@ -280,7 +397,8 @@ router.post('/confirm', extractUserOrSession, async (req, res) => {
           message: 'Payment confirmed and order completed',
           data: {
             orderId: order.id,
-            paymentStatus: paymentIntent.status
+            paymentStatus: paymentIntent.status,
+            multiVendor: isMultiVendor
           }
         });
       } else {

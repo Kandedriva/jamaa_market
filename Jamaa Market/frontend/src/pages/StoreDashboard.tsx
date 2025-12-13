@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import ImageUpload from '../components/ImageUpload';
+import StripeConnect from '../components/store/StripeConnect';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
 
@@ -51,7 +52,7 @@ interface StoreDashboardProps {
 }
 
 const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'sales' | 'analytics' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'sales' | 'analytics' | 'payments' | 'settings'>('overview');
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(false);
@@ -541,6 +542,7 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
               { key: 'products', label: 'Products' },
               { key: 'sales', label: 'Sales' },
               { key: 'analytics', label: 'Analytics' },
+              { key: 'payments', label: 'Payments' },
               { key: 'settings', label: 'Settings' }
             ].map(tab => (
               <button
@@ -579,6 +581,7 @@ const StoreDashboard: React.FC<StoreDashboardProps> = ({ storeOwner, onLogout })
             <p className="text-gray-500">Analytics dashboard coming soon...</p>
           </div>
         )}
+        {activeTab === 'payments' && <StripeConnect />}
         {activeTab === 'settings' && (
           <div className="text-center py-12">
             <p className="text-gray-500">Store settings coming soon...</p>

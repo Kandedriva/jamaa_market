@@ -17,6 +17,7 @@ const createStoresTable = require('./scripts/createStoresTable');
 const createOrdersTable = require('./scripts/createOrdersTable');
 const updateOrdersTableForCheckout = require('./scripts/updateOrdersTableForCheckout');
 const addDeliveryFieldsToOrders = require('./scripts/addDeliveryFieldsToOrders');
+const addStripeConnectToStores = require('./scripts/addStripeConnectToStores');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -50,6 +51,10 @@ app.use(morgan(morganFormat, {
     write: (message) => logger.http(message.trim())
   }
 }));
+
+// Webhook routes (must be before body parsing middleware for raw body access)
+const webhookRoutes = require('./routes/webhooks');
+app.use('/api/webhooks', webhookRoutes);
 
 // Body parsing middleware with size limits
 app.use(express.json({ 
@@ -165,6 +170,10 @@ app.use('/api/images', imageRoutes);
 const checkoutRoutes = require('./routes/checkout');
 app.use('/api/checkout', checkoutRoutes);
 
+// Stripe Connect routes
+const stripeConnectRoutes = require('./routes/stripe-connect');
+app.use('/api/stripe-connect', stripeConnectRoutes);
+
 // Global error handler
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', {
@@ -210,6 +219,7 @@ const startServer = async () => {
     await createOrdersTable();
     await updateOrdersTableForCheckout();
     await addDeliveryFieldsToOrders();
+    await addStripeConnectToStores();
     logger.info('Database tables initialized');
 
     // Check R2 configuration

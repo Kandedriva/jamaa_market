@@ -46,7 +46,8 @@ function AppContent() {
           if (parsedUser.user_type === 'store_owner' && token) {
             try {
               // Validate JWT token by making a test request
-              const response = await fetch('http://localhost:3001/api/store/products', {
+              const apiUrl = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
+              const response = await fetch(`${apiUrl}/store/products`, {
                 headers: {
                   'Authorization': `Bearer ${token}`,
                   'Content-Type': 'application/json'
@@ -71,7 +72,8 @@ function AppContent() {
           // For admins and customers using session-based auth
           else {
             try {
-              const response = await fetch('http://localhost:3001/api/auth/profile', {
+              const apiUrl = process.env.REACT_APP_API_URL || 'https://localhost:3001/api';
+              const response = await fetch(`${apiUrl}/auth/profile`, {
                 credentials: 'include' // Include session cookies
               });
               
